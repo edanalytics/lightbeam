@@ -1,0 +1,572 @@
+# Ed-Fi data dependency graph
+# graph this using http://www.webgraphviz.com/
+
+digraph G {
+    educationOrganizations
+    schoolYearTypes
+    stateEducationAgencies -> schoolYearTypes
+    educationServiceCenters -> stateEducationAgencies
+    localEducationAgencies -> educationServiceCenters
+    localEducationAgencies -> localEducationAgenciesAAA
+    localEducationAgencies -> stateEducationAgencies
+    localEducationAgencies -> schoolYearTypes
+    schools -> localEducationAgencies
+    schools -> schoolYearTypes
+    locations -> schools
+    academicWeeks -> schools
+    accountabilityRatings -> educationOrganizations
+    accountabilityRatings -> schoolYearTypes
+    accountCodes -> educationOrganizations
+    accounts -> accountCodes
+    accounts -> educationOrganizations
+    actuals -> accounts
+    applicants -> educationOrganizations
+    learningStandards -> learningStandardsAAA
+    learningStandards -> educationOrganizations
+    learningObjectives -> learningObjectivesAAA
+    learningObjectives -> educationOrganizations
+    learningObjectives -> learningStandards
+    programs -> educationOrganizations
+    programs -> learningObjectives
+    programs -> learningStandards
+    courses -> educationOrganizations
+    courses -> learningObjectives
+    courses -> learningStandards
+    courseOfferings -> courses
+    courseOfferings -> schools
+    classPeriods -> schools
+    sections -> courseOfferings
+    sections -> locations
+    sections -> schools
+    sections -> classPeriods
+    sections -> programs
+    assessments -> educationOrganizations
+    assessments -> programs
+    assessments -> sections
+    assessmentItems -> assessments
+    assessmentItems -> learningStandards
+    bellSchedules -> classPeriods
+    bellSchedules -> schools
+    budgets -> accounts
+    calendars -> schools
+    calendars -> schoolYearTypes
+    calendarDates -> calendars
+    cohorts -> educationOrganizations
+    cohorts -> programs
+    communityOrganizations
+    communityProviders -> communityOrganizations
+    communityProviderLicenses -> communityProviders
+    competencyObjectives -> educationOrganizations
+    contractedStaffs -> accounts
+    credentials
+    staffs -> credentials
+    contractedStaffs -> staffs
+    gradingPeriods -> schools
+    gradingPeriods -> schoolYearTypes
+    sessions -> schools
+    sessions -> schoolYearTypes
+    sessions -> academicWeeks
+    sessions -> gradingPeriods
+    courseOfferings -> sessions
+    courseTranscripts -> courses
+    courseTranscripts -> educationOrganizations
+    students
+    studentSectionAssociations -> sections
+    studentSectionAssociations -> students
+    grades -> gradingPeriods
+    grades -> studentSectionAssociations
+    studentProgramAssociations -> educationOrganizations
+    studentProgramAssociations -> programs
+    studentProgramAssociations -> students
+    studentCompetencyObjectives -> gradingPeriods
+    studentCompetencyObjectives -> competencyObjectives
+    studentCompetencyObjectives -> students
+    studentCompetencyObjectives -> studentProgramAssociations
+    studentCompetencyObjectives -> studentSectionAssociations
+    studentLearningObjectives -> gradingPeriods
+    studentLearningObjectives -> learningObjectives
+    studentLearningObjectives -> students
+    studentLearningObjectives -> studentProgramAssociations
+    studentLearningObjectives -> studentSectionAssociations
+    reportCards -> educationOrganizations
+    reportCards -> gradingPeriods
+    reportCards -> students
+    reportCards -> grades
+    reportCards -> studentCompetencyObjectives
+    reportCards -> studentLearningObjectives
+    studentAcademicRecords -> educationOrganizations
+    studentAcademicRecords -> schoolYearTypes
+    studentAcademicRecords -> students
+    studentAcademicRecords -> reportCards
+    courseTranscripts -> studentAcademicRecords
+    disciplineIncidents -> schools
+    disciplineIncidents -> staffs
+    studentDisciplineIncidentAssociations -> disciplineIncidents
+    studentDisciplineIncidentAssociations -> students
+    disciplineActions -> studentDisciplineIncidentAssociation
+    disciplineActions -> schools
+    disciplineActions -> students
+    disciplineActions -> staffs
+    educationContents -> learningStandards
+    educationContents -> educationContentsAAA
+    interventionPrescriptions -> educationOrganizations
+    interventionPrescriptions -> educationContents
+    educationOrganizationNetworks
+    educationOrganizationInterventionPrescriptionAssociations -> educationOrganizations
+    educationOrganizationInterventionPrescriptionAssociations -> interventionPrescription
+    educationOrganizationNetworkAssociations -> educationOrganizationNetworks
+    educationOrganizationNetworkAssociations -> educationOrganizations
+    educationOrganizationPeerAssociations -> educationOrganizations
+    feederSchoolAssociations -> schools
+    gradebookEntries -> gradingPeriods
+    gradebookEntries -> sections
+    gradebookEntries -> learningObjectives
+    gradebookEntries -> learningStandards
+    graduationPlans -> educationOrganizations
+    graduationPlans -> schoolYearTypes
+    graduationPlans -> courses
+    graduationPlans -> assessments
+    interventions -> educationOrganizations
+    interventions -> educationContents
+    interventions -> interventionPrescriptions
+    interventions -> staffs
+    interventionStudies -> educationOrganizations
+    interventionStudies -> interventionPrescriptions
+    interventionStudies -> educationContents
+    objectiveAssessments -> assessments
+    objectiveAssessments -> objectiveAssessmentsAAA
+    objectiveAssessments -> assessmentItems
+    objectiveAssessments -> learningObjectives
+    objectiveAssessments -> learningStandards
+    openStaffPositions -> educationOrganizations
+    parents
+    payrolls -> accounts
+    payrolls -> staffs
+    postSecondaryInstitutions
+    postSecondaryEvents -> students
+    postSecondaryEvents -> postSecondaryInstitutions
+    restraintEvents -> schools
+    restraintEvents -> students
+    restraintEvents -> programs
+    sectionAttendanceTakenEvents -> calendarDates
+    sectionAttendanceTakenEvents -> sections
+    sectionAttendanceTakenEvents -> staffs
+    staffAbsenceEvents -> staffs
+    staffCohortAssociations -> cohorts
+    staffCohortAssociations -> staff
+    staffEducationOrganizationEmploymentAssociations -> credentials
+    staffEducationOrganizationEmploymentAssociations -> educationOrganizations
+    staffEducationOrganizationEmploymentAssociations -> staffs
+    staffEducationOrganizationAssignmentAssociations -> credentials
+    staffEducationOrganizationAssignmentAssociations -> educationOrganizations
+    staffEducationOrganizationAssignmentAssociations -> staffEducationOrganizationEmploymentAssociations
+    staffEducationOrganizationAssignmentAssociations -> staffs
+    staffEducationOrganizationContactAssociations -> educationOrganizations
+    staffEducationOrganizationContactAssociations -> staffs
+    staffLeaves -> staffs
+    staffProgramAssociations -> programs
+    staffProgramAssociations -> staffs
+    staffSchoolAssociations -> calendars
+    staffSchoolAssociations -> schools
+    staffSchoolAssociations -> schoolYearTypes
+    staffSchoolAssociations -> staffs
+    staffSectionAssociations -> sections
+    staffSectionAssociations -> staffs
+    studentAssessments -> assessments
+    studentAssessments -> schoolYearTypes
+    studentAssessments -> students
+    studentAssessments -> objectiveAssessments
+    studentCohortAssociations -> cohorts
+    studentCohortAssociations -> students
+    studentCohortAssociations -> sections
+    studentCTEProgramAssociations -> educationOrganizations
+    studentCTEProgramAssociations -> programs
+    studentCTEProgramAssociations -> students
+    studentEducationOrganizationAssociations -> educationOrganizations
+    studentEducationOrganizationAssociations -> students
+    studentEducationOrganizationAssociations -> schoolYearTypes
+    studentEducationOrganizationResponsibilityAssociations -> educationOrganizations
+    studentEducationOrganizationResponsibilityAssociations -> students
+    studentGradebookEntries -> gradebookEntries
+    studentGradebookEntries -> studentSectionAssociations
+    studentHomelessProgramAssociations -> educationOrganizations
+    studentHomelessProgramAssociations -> programs
+    studentHomelessProgramAssociations -> students
+    studentInterventionAssociations -> cohorts
+    studentInterventionAssociations -> interventions
+    studentInterventionAssociations -> students
+    studentInterventionAttendanceEvents -> interventions
+    studentInterventionAttendanceEvents -> students
+    studentLanguageInstructionProgramAssociations -> educationOrganizations
+    studentLanguageInstructionProgramAssociations -> programs
+    studentLanguageInstructionProgramAssociations -> students
+    studentLanguageInstructionProgramAssociations -> schoolYearTypes
+    studentMigrantEducationProgramAssociations -> educationOrganizations
+    studentMigrantEducationProgramAssociations -> programs
+    studentMigrantEducationProgramAssociations -> students
+    studentNeglectedOrDelinquentProgramAssociations -> educationOrganizations
+    studentNeglectedOrDelinquentProgramAssociations -> programs
+    studentNeglectedOrDelinquentProgramAssociations -> students
+    studentParentAssociations -> parents
+    studentParentAssociations -> students
+    studentProgramAttendanceEvents -> educationOrganizations
+    studentProgramAttendanceEvents -> programs
+    studentProgramAttendanceEvents -> students
+    studentSchoolAssociations -> calendars
+    studentSchoolAssociations -> schoolYearTypes
+    studentSchoolAssociations -> graduationPlans
+    studentSchoolAssociations -> schools
+    studentSchoolAssociations -> students
+    studentSchoolAttendanceEvents -> schools
+    studentSchoolAttendanceEvents -> sessions
+    studentSchoolAttendanceEvents -> students
+    studentSchoolFoodServiceProgramAssociations -> educationOrganizations
+    studentSchoolFoodServiceProgramAssociations -> programs
+    studentSchoolFoodServiceProgramAssociations -> students
+    studentSectionAttendanceEvents -> sections
+    studentSectionAttendanceEvents -> students
+    studentSpecialEducationProgramAssociations -> educationOrganizations
+    studentSpecialEducationProgramAssociations -> programs
+    studentSpecialEducationProgramAssociations -> students
+    studentSpecialEducationProgramAssociations -> staffs
+    studentTitleIPartAProgramAssociations -> educationOrganizations
+    studentTitleIPartAProgramAssociations -> programs
+    studentTitleIPartAProgramAssociations -> students
+}
+
+
+
+
+# dependency-ordered:
+educationOrganizations
+schoolYearTypes
+stateEducationAgencies -> schoolYearTypes
+educationServiceCenters -> stateEducationAgencies
+localEducationAgencies -> educationServiceCenters
+localEducationAgencies -> localEducationAgenciesAAA
+localEducationAgencies -> stateEducationAgencies
+localEducationAgencies -> schoolYearTypes
+schools -> localEducationAgencies
+schools -> schoolYearTypes
+locations -> schools
+academicWeeks -> schools
+accountabilityRatings -> educationOrganizations
+accountabilityRatings -> schoolYearTypes
+accountCodes -> educationOrganizations
+accounts -> accountCodes
+accounts -> educationOrganizations
+actuals -> accounts
+applicants -> educationOrganizations
+learningStandards -> learningStandardsAAA
+learningStandards -> educationOrganizations
+learningObjectives -> learningObjectivesAAA
+learningObjectives -> educationOrganizations
+learningObjectives -> learningStandards
+programs -> educationOrganizations
+programs -> learningObjectives
+programs -> learningStandards
+courses -> educationOrganizations
+courses -> learningObjectives
+courses -> learningStandards
+gradingPeriods -> schools
+gradingPeriods -> schoolYearTypes
+sessions -> schools
+sessions -> schoolYearTypes
+sessions -> academicWeeks
+sessions -> gradingPeriods
+courseOfferings -> sessions
+courseOfferings -> courses
+courseOfferings -> schools
+classPeriods -> schools
+sections -> courseOfferings
+sections -> locations
+sections -> schools
+sections -> classPeriods
+sections -> programs
+assessments -> educationOrganizations
+assessments -> programs
+assessments -> sections
+assessmentItems -> assessments
+assessmentItems -> learningStandards
+bellSchedules -> classPeriods
+bellSchedules -> schools
+budgets -> accounts
+calendars -> schools
+calendars -> schoolYearTypes
+calendarDates -> calendars
+cohorts -> educationOrganizations
+cohorts -> programs
+communityOrganizations
+communityProviders -> communityOrganizations
+communityProviderLicenses -> communityProviders
+competencyObjectives -> educationOrganizations
+credentials
+staffs -> credentials
+contractedStaffs -> accounts
+contractedStaffs -> staffs
+courseTranscripts -> courses
+courseTranscripts -> educationOrganizations
+students
+studentSectionAssociations -> sections
+studentSectionAssociations -> students
+grades -> gradingPeriods
+grades -> studentSectionAssociations
+studentProgramAssociations -> educationOrganizations
+studentProgramAssociations -> programs
+studentProgramAssociations -> students
+studentCompetencyObjectives -> gradingPeriods
+studentCompetencyObjectives -> competencyObjectives
+studentCompetencyObjectives -> students
+studentCompetencyObjectives -> studentProgramAssociations
+studentCompetencyObjectives -> studentSectionAssociations
+studentLearningObjectives -> gradingPeriods
+studentLearningObjectives -> learningObjectives
+studentLearningObjectives -> students
+studentLearningObjectives -> studentProgramAssociations
+studentLearningObjectives -> studentSectionAssociations
+reportCards -> educationOrganizations
+reportCards -> gradingPeriods
+reportCards -> students
+reportCards -> grades
+reportCards -> studentCompetencyObjectives
+reportCards -> studentLearningObjectives
+studentAcademicRecords -> educationOrganizations
+studentAcademicRecords -> schoolYearTypes
+studentAcademicRecords -> students
+studentAcademicRecords -> reportCards
+courseTranscripts -> studentAcademicRecords
+disciplineIncidents -> schools
+disciplineIncidents -> staffs
+studentDisciplineIncidentAssociations -> disciplineIncidents
+studentDisciplineIncidentAssociations -> students
+disciplineActions -> studentDisciplineIncidentAssociation
+disciplineActions -> schools
+disciplineActions -> students
+disciplineActions -> staffs
+educationContents -> learningStandards
+educationContents -> educationContentsAAA
+interventionPrescriptions -> educationOrganizations
+interventionPrescriptions -> educationContents
+educationOrganizationNetworks
+educationOrganizationInterventionPrescriptionAssociations -> educationOrganizations
+educationOrganizationInterventionPrescriptionAssociations -> interventionPrescription
+educationOrganizationNetworkAssociations -> educationOrganizationNetworks
+educationOrganizationNetworkAssociations -> educationOrganizations
+educationOrganizationPeerAssociations -> educationOrganizations
+feederSchoolAssociations -> schools
+gradebookEntries -> gradingPeriods
+gradebookEntries -> sections
+gradebookEntries -> learningObjectives
+gradebookEntries -> learningStandards
+graduationPlans -> educationOrganizations
+graduationPlans -> schoolYearTypes
+graduationPlans -> courses
+graduationPlans -> assessments
+interventions -> educationOrganizations
+interventions -> educationContents
+interventions -> interventionPrescriptions
+interventions -> staffs
+interventionStudies -> educationOrganizations
+interventionStudies -> interventionPrescriptions
+interventionStudies -> educationContents
+objectiveAssessments -> assessments
+objectiveAssessments -> objectiveAssessmentsAAA
+objectiveAssessments -> assessmentItems
+objectiveAssessments -> learningObjectives
+objectiveAssessments -> learningStandards
+openStaffPositions -> educationOrganizations
+parents
+payrolls -> accounts
+payrolls -> staffs
+postSecondaryInstitutions
+postSecondaryEvents -> students
+postSecondaryEvents -> postSecondaryInstitutions
+restraintEvents -> schools
+restraintEvents -> students
+restraintEvents -> programs
+sectionAttendanceTakenEvents -> calendarDates
+sectionAttendanceTakenEvents -> sections
+sectionAttendanceTakenEvents -> staffs
+staffAbsenceEvents -> staffs
+staffCohortAssociations -> cohorts
+staffCohortAssociations -> staff
+staffEducationOrganizationEmploymentAssociations -> credentials
+staffEducationOrganizationEmploymentAssociations -> educationOrganizations
+staffEducationOrganizationEmploymentAssociations -> staffs
+staffEducationOrganizationAssignmentAssociations -> credentials
+staffEducationOrganizationAssignmentAssociations -> educationOrganizations
+staffEducationOrganizationAssignmentAssociations -> staffEducationOrganizationEmploymentAssociations
+staffEducationOrganizationAssignmentAssociations -> staffs
+staffEducationOrganizationContactAssociations -> educationOrganizations
+staffEducationOrganizationContactAssociations -> staffs
+staffLeaves -> staffs
+staffProgramAssociations -> programs
+staffProgramAssociations -> staffs
+staffSchoolAssociations -> calendars
+staffSchoolAssociations -> schools
+staffSchoolAssociations -> schoolYearTypes
+staffSchoolAssociations -> staffs
+staffSectionAssociations -> sections
+staffSectionAssociations -> staffs
+studentAssessments -> assessments
+studentAssessments -> schoolYearTypes
+studentAssessments -> students
+studentAssessments -> objectiveAssessments
+studentCohortAssociations -> cohorts
+studentCohortAssociations -> students
+studentCohortAssociations -> sections
+studentCTEProgramAssociations -> educationOrganizations
+studentCTEProgramAssociations -> programs
+studentCTEProgramAssociations -> students
+studentEducationOrganizationAssociations -> educationOrganizations
+studentEducationOrganizationAssociations -> students
+studentEducationOrganizationAssociations -> schoolYearTypes
+studentEducationOrganizationResponsibilityAssociations -> educationOrganizations
+studentEducationOrganizationResponsibilityAssociations -> students
+studentGradebookEntries -> gradebookEntries
+studentGradebookEntries -> studentSectionAssociations
+studentHomelessProgramAssociations -> educationOrganizations
+studentHomelessProgramAssociations -> programs
+studentHomelessProgramAssociations -> students
+studentInterventionAssociations -> cohorts
+studentInterventionAssociations -> interventions
+studentInterventionAssociations -> students
+studentInterventionAttendanceEvents -> interventions
+studentInterventionAttendanceEvents -> students
+studentLanguageInstructionProgramAssociations -> educationOrganizations
+studentLanguageInstructionProgramAssociations -> programs
+studentLanguageInstructionProgramAssociations -> students
+studentLanguageInstructionProgramAssociations -> schoolYearTypes
+studentMigrantEducationProgramAssociations -> educationOrganizations
+studentMigrantEducationProgramAssociations -> programs
+studentMigrantEducationProgramAssociations -> students
+studentNeglectedOrDelinquentProgramAssociations -> educationOrganizations
+studentNeglectedOrDelinquentProgramAssociations -> programs
+studentNeglectedOrDelinquentProgramAssociations -> students
+studentParentAssociations -> parents
+studentParentAssociations -> students
+studentProgramAttendanceEvents -> educationOrganizations
+studentProgramAttendanceEvents -> programs
+studentProgramAttendanceEvents -> students
+studentSchoolAssociations -> calendars
+studentSchoolAssociations -> schoolYearTypes
+studentSchoolAssociations -> graduationPlans
+studentSchoolAssociations -> schools
+studentSchoolAssociations -> students
+studentSchoolAttendanceEvents -> schools
+studentSchoolAttendanceEvents -> sessions
+studentSchoolAttendanceEvents -> students
+studentSchoolFoodServiceProgramAssociations -> educationOrganizations
+studentSchoolFoodServiceProgramAssociations -> programs
+studentSchoolFoodServiceProgramAssociations -> students
+studentSectionAttendanceEvents -> sections
+studentSectionAttendanceEvents -> students
+studentSpecialEducationProgramAssociations -> educationOrganizations
+studentSpecialEducationProgramAssociations -> programs
+studentSpecialEducationProgramAssociations -> students
+studentSpecialEducationProgramAssociations -> staffs
+studentTitleIPartAProgramAssociations -> educationOrganizations
+studentTitleIPartAProgramAssociations -> programs
+studentTitleIPartAProgramAssociations -> students
+
+
+
+
+# dependency-ordered, deduped:
+educationOrganizations
+schoolYearTypes
+stateEducationAgencies
+educationServiceCenters
+localEducationAgencies
+schools
+locations
+academicWeeks
+accountabilityRatings
+accountCodes
+accounts
+actuals
+applicants
+learningStandards
+learningObjectives
+programs
+courses
+gradingPeriods
+sessions
+courseOfferings
+classPeriods
+sections
+assessments
+assessmentItems
+bellSchedules
+budgets
+calendars
+calendarDates
+cohorts
+communityOrganizations
+communityProviders
+communityProviderLicenses
+competencyObjectives
+credentials
+staffs
+contractedStaffs
+courseTranscripts
+students
+studentSectionAssociations
+grades
+studentProgramAssociations
+studentCompetencyObjectives
+studentLearningObjectives
+reportCards
+studentAcademicRecords
+courseTranscripts
+disciplineIncidents
+studentDisciplineIncidentAssociations
+disciplineActions
+educationContents
+interventionPrescriptions
+educationOrganizationNetworks
+educationOrganizationInterventionPrescriptionAssociations
+educationOrganizationNetworkAssociations
+educationOrganizationPeerAssociations
+feederSchoolAssociations
+gradebookEntries
+graduationPlans
+interventions
+interventionStudies
+objectiveAssessments
+openStaffPositions
+parents
+payrolls
+postSecondaryInstitutions
+postSecondaryEvents
+restraintEvents
+sectionAttendanceTakenEvents
+staffAbsenceEvents
+staffCohortAssociations
+staffEducationOrganizationEmploymentAssociations
+staffEducationOrganizationAssignmentAssociations
+staffEducationOrganizationContactAssociations
+staffLeaves
+staffProgramAssociations
+staffSchoolAssociations
+staffSectionAssociations
+studentAssessments
+studentCohortAssociations
+studentCTEProgramAssociations
+studentEducationOrganizationAssociations
+studentEducationOrganizationResponsibilityAssociations
+studentGradebookEntries
+studentHomelessProgramAssociations
+studentInterventionAssociations
+studentInterventionAttendanceEvents
+studentLanguageInstructionProgramAssociations
+studentMigrantEducationProgramAssociations
+studentNeglectedOrDelinquentProgramAssociations
+studentParentAssociations
+studentProgramAttendanceEvents
+studentSchoolAssociations
+studentSchoolAttendanceEvents
+studentSchoolFoodServiceProgramAssociations
+studentSectionAttendanceEvents
+studentSpecialEducationProgramAssociations
+studentTitleIPartAProgramAssociations
