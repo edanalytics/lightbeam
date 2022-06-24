@@ -1,7 +1,7 @@
 <!-- Logo/image -->
 ![lightbeam](lightbeam/resources/lightbeam.png)
 
-`lightbeam` injects payloads from JSONL files into an Ed-Fi API.
+`lightbeam` transmits payloads from JSONL files into an Ed-Fi API.
 <!-- GIF or screenshot? -->
 
 
