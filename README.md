@@ -1,7 +1,7 @@
 <!-- Logo/image -->
 ![lightbeam](lightbeam/resources/lightbeam.png)
 
-`lightbeam` transmits payloads from JSONL files into an Ed-Fi API.
+`lightbeam` transmits payloads from JSONL files into an [Ed-Fi API](https://techdocs.ed-fi.org/display/ETKB/Ed-Fi+Operational+Data+Store+and+API).
 <!-- GIF or screenshot? -->
 
 
