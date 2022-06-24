@@ -75,6 +75,7 @@ show_stacktrace: True
   * (optional) The `num_retries` to do in case of request failures. The default is `10`.
   * (optional) The `backoff_factor` to use for the exponential backoff. The default is `1.5`.
   * (optional) The `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry. The default is `[429, 500, 501, 503, 504]`.
+  * (optional) Whether to `verify_ssl`. The default is `True`. Set to `False` when working with `localhost` APIs or to live dangerously.
 * (optional) Specify whether or not to show `verbose` output. The default is `False`.
 * (optional) Specify whether to show a stacktrace for runtime errors. The default is `False`.
 

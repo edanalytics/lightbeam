@@ -189,7 +189,7 @@ class Lightbeam:
         # print(session.headers)
         # self.edfi_client = edfi_client
 
-        api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.edfi_api.verify_ssl).json()
+        api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.connection.verify_ssl).json()
         self.config.edfi_api.oauth_url = api_base["urls"]["oauth"]
         self.config.edfi_api.data_url = api_base["urls"]["dataManagementApi"] + 'ed-fi/'
         self.do_oauth()
@@ -212,7 +212,7 @@ class Lightbeam:
                 self.config.edfi_api.client_id,
                 self.config.edfi_api.client_secret
                 ),
-            verify=self.config.edfi_api.verify_ssl)
+            verify=self.config.connection.verify_ssl)
         token = token_response.json()["access_token"]
         # self.profile("(using OAuth token {0})".format(token))
 
@@ -279,7 +279,7 @@ class Lightbeam:
 
     async def do_post(self, endpoint, data, client, line, hash):
         try:
-            async with client.post(self.config.edfi_api.data_url + endpoint, data=data, ssl=self.config.edfi_api.verify_ssl) as response:
+            async with client.post(self.config.edfi_api.data_url + endpoint, data=data, ssl=self.config.connection.verify_ssl) as response:
                 body = await response.text()
                 status = str(response.status)
                 if status not in self.status_counts: self.status_counts[status] = 1
