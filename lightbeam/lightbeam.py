@@ -18,7 +18,7 @@ import aiohttp
 from aiohttp_retry import RetryClient, ExponentialRetry
 from urllib3 import PoolManager
 
-from edfi_api_client import EdFiBase, EdFiClient
+# from edfi_api_client import EdFiBase, EdFiClient
 
 
 parameters = {}
@@ -73,29 +73,36 @@ class Lightbeam:
     config_defaults = {
         "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
         "source_dir": "./",
-        "edfi_api_base": "https://localhost/api",
-        "edfi_api_mode": "year_specific",
-        "edfi_api_year": datetime.today().year,
-        "edfi_api_client_id": "populated",
-        "edfi_api_client_secret": "populatedSecret",
-        "connection_pool_size": 8,
-        "num_retries": 10,
-        "backoff_factor": 1.5,
-        "status_forcelist": [429, 500, 501, 503, 504],
+        "edfi_api": {
+            "base_url": "https://localhost/api",
+            "version": 3,
+            "mode": "year_specific",
+            "year": datetime.today().year,
+            "client_id": "populated",
+            "client_secret": "populatedSecret"
+        },
+        "connection": {
+            "pool_size": 8,
+            "timeout": 60,
+            "num_retries": 10,
+            "backoff_factor": 1.5,
+            "retry_statuses": [429, 500, 501, 503, 504],
+        },
         "verbose": False,
         "show_stacktrace": False
     }
     
-    def __init__(self, config_file, params="", older_than="", newer_than="", retry_status_codes=""):
+    def __init__(self, config_file, params="", force=False, older_than="", newer_than="", resend_status_codes=""):
         self.config_file = config_file
         self.t0 = time.time()
         self.memory_usage = 0
-        self.dispatcher_status_counts = {}
-        self.dispatcher_errors = 0
+        self.status_counts = {}
+        self.errors = 0
         self.params = params
+        self.force = force
         self.older_than=older_than
         self.newer_than=newer_than
-        self.retry_status_codes=retry_status_codes
+        self.resend_status_codes=resend_status_codes
 
         parameters = {}
         if params!="": parameters = json.loads(params)
@@ -127,6 +134,10 @@ class Lightbeam:
                     user[k] = self.merge_config(user[k], v)
         return user
     
+    def profile(self, msg):
+        t = time.time()
+        if self.config.verbose: print(str(t-self.t0) + "\t" + msg)
+    
     # sort destinations by Ed-Fi dependency-order:
     def get_sorted_endpoints(self, endpoints):
         with open(f"lightbeam/resources/ed-fi-ordered-dependencies.txt", 'r') as file:
@@ -151,59 +162,78 @@ class Lightbeam:
             exit(1)
         # filter down to only selected endpoints
         if selector!="*" and selector!="":
-            selected_endpoints = selector.split(",")
-            endpoints = [e for e in endpoints if e in selected_endpoints]
+            if "," in selector:
+                selected_endpoints = selector.split(",")
+                endpoints = [e for e in endpoints if e in selected_endpoints]
+            else: endpoints = [ selector ]
         
         logging.captureWarnings(True) # turn off annoying SSL warnings (is this DANGEROUSSSS??)
 
         if self.older_than!='': self.older_than = dateutil.parser.parse(self.older_than).timestamp()
         if self.newer_than!='': self.newer_than = dateutil.parser.parse(self.newer_than).timestamp()
-        if self.retry_status_codes!='': self.retry_status_codes = [int(code) for code in self.retry_status_codes.split(",")]
+        if self.resend_status_codes!='': self.resend_status_codes = [int(code) for code in self.resend_status_codes.split(",")]
 
         # using the EA's edfi_api_client library:
-        # edfi_client = EdFiClient(
-        #     self.config.dispatch.edfi_api.base_url,
-        #     self.config.dispatch.edfi_api.client_id,
-        #     self.config.dispatch.edfi_api.client_secret,
-        #     api_year=2022,
-        #     verbose=True
+        # edfi_client = EdFiBase(
+        #     base_url=self.config.edfi_api_base_url,
+        #     client_key=self.config.edfi_api_client_id,
+        #     client_secret=self.config.edfi_api_client_secret,
+        #     api_version=self.config.edfi_api_version,
+        #     api_year=self.config.edfi_api_year,
+        #     api_mode=self.config.edfi_api_mode,
+        #     instance_code=self.config.edfi_api_instance_code or None
         # )
-        # # print(edfi_client.get_info())
+        # print(edfi_client.get_info())
+        # session = edfi_client.get_conn()
+        # print(session)
+        # print(session.headers)
         # self.edfi_client = edfi_client
-        
-        # print(edfi.total_rows)
 
-        # we need an API token first:
+        api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.edfi_api.verify_ssl).json()
+        self.config.edfi_api.oauth_url = api_base["urls"]["oauth"]
+        self.config.edfi_api.data_url = api_base["urls"]["dataManagementApi"] + 'ed-fi/'
+        self.do_oauth()
+        
+        # create state_dir if it doesn't exist:
+        state_dir = os.path.expanduser(self.config.state_dir)
+        if not os.path.isdir(state_dir):
+            os.mkdir(state_dir)
+
+        for endpoint in endpoints:
+            self.profile("sending endpoint {0} ...".format(endpoint))
+            asyncio.run(self.do_dispatch(endpoint))
+            self.profile("finished endpoint {0}! (status counts: {1}) ".format(endpoint, str(self.status_counts)))
+
+    def do_oauth(self):
         token_response = requests.post(
-                        self.config.edfi_api_base_url,
-                        data={"grant_type":"client_credentials"},
-                        auth=(self.config.edfi_api_client_id, self.config.edfi_api_client_secret),
-                        verify=False)
-        print(token_response)
+            self.config.edfi_api.oauth_url,
+            data={"grant_type":"client_credentials"},
+            auth=(
+                self.config.edfi_api.client_id,
+                self.config.edfi_api.client_secret
+                ),
+            verify=self.config.edfi_api.verify_ssl)
         token = token_response.json()["access_token"]
-        self.profile("(using OAuth token {0})".format(token))
+        # self.profile("(using OAuth token {0})".format(token))
 
         # these headers are sent with every subsequent API POST request:
-        headers = {
+        self.config.edfi_api.headers = {
             "accept": "application/json",
             "Content-Type": "application/json",
             "authorization": "Bearer " + token
         }
 
-        for endpoint in endpoints:
-            self.profile("sending endpoint {0} ...".format(endpoint))
-            asyncio.run(self.do_dispatch(endpoint, headers, older_than, newer_than, retry_status_codes))
-            self.profile("finished endpoint {0}! (status counts: {1}) ".format(endpoint, str(self.dispatcher_status_counts)))
-
-    async def do_dispatch(self, destination, headers, older_than, newer_than, retry_status_codes):
-        timeout = aiohttp.ClientTimeout(total=600)
-        connector = aiohttp.connector.TCPConnector(limit=self.config.dispatch.connection_pool_size)
-        retry_options = ExponentialRetry(
-            attempts=self.config.dispatch.num_retries,
-            factor=self.config.dispatch.backoff_factor,
-            statuses=self.config.dispatch.status_forcelist
-        )
-        async with RetryClient(timeout=timeout, retry_options=retry_options, connector=connector, headers=headers) as client:
+    async def do_dispatch(self, endpoint):
+        async with RetryClient(
+            timeout=aiohttp.ClientTimeout(total=self.config.connection.timeout),
+            retry_options=ExponentialRetry(
+                attempts=self.config.connection.num_retries,
+                factor=self.config.connection_backoff_factor,
+                statuses=self.config.connection.retry_statuses
+                ),
+            connector=aiohttp.connector.TCPConnector(limit=self.config.connection.pool_size),
+            headers=self.config.edfi_api.headers
+            ) as client:
         
             # We try to be smart and avoid re-POSTing JSON we've already (successfully) sent.
             # This is done by storing a few things in a file we call a hashlog:
@@ -211,10 +241,10 @@ class Lightbeam:
             # - the timestamp of the last send of this JSON
             # - the returned status code for the last send
             # Using these logs, we can do things like retry JSON that previously failed, resend JSON older than a certain age, etc.
-            hashlog_file = os.path.join(self.config.state_dir, f"{destination}.dat")
+            hashlog_file = os.path.join(os.path.expanduser(self.config.state_dir), f"{endpoint}.dat")
             self.hashlog = self.load_hashlog(hashlog_file)
             
-            file_name = self.config.generate.output_dir + destination + ".jsonl"
+            file_name = self.config.data_dir + endpoint + ".jsonl"
             tasks = []
             with open(file_name) as file:
                 num_skipped = 0
@@ -228,35 +258,37 @@ class Lightbeam:
                     counter += 1
                     if hash in self.hashlog.keys():
                         # check if the last post meets criteria for a resend:
-                        if (
-                            (older_than!='' and self.hashlog[hash][0]<older_than)
-                            or (newer_than!="" and self.hashlog[hash][0]>newer_than)
-                            or (len(retry_status_codes)>0 and self.hashlog[hash][1] in retry_status_codes)
+                        if ( self.force
+                            or (self.older_than!='' and self.hashlog[hash][0]<self.older_than)
+                            or (self.newer_than!="" and self.hashlog[hash][0]>self.newer_than)
+                            or (len(self.resend_status_codes)>0 and self.hashlog[hash][1] in self.resend_status_codes)
                         ):
-                            tasks.append(asyncio.ensure_future(self.do_post(destination, data, self.edfi_client, counter, hash)))
+                            tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
                         else:
                             num_skipped += 1
                             continue
+                    else: # never before seen! send
+                        tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
                 if num_skipped>0:
                     self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(num_skipped, counter))
-            await self.gather_with_concurrency(self.config.dispatch.connection_pool_size, *tasks) # execute them concurrently
+            await self.gather_with_concurrency(self.config.connection.pool_size, *tasks) # execute them concurrently
             self.save_hashlog(hashlog_file, self.hashlog)
     
-        if self.dispatcher_errors > 10:
+        if self.errors > 10:
             raise Exception("more than 10 errors, terminating. Please review the errors, fix data errors or network conditions, and dispatch again.")
 
     async def do_post(self, endpoint, data, client, line, hash):
         try:
-            async with client.post(self.config.dispatch.edfi_api.base_url + "/" + endpoint, data=data, ssl=False) as response:
+            async with client.post(self.config.edfi_api.data_url + endpoint, data=data, ssl=self.config.edfi_api.verify_ssl) as response:
                 body = await response.text()
                 status = str(response.status)
-                if status not in self.dispatcher_status_counts: self.dispatcher_status_counts[status] = 1
-                else: self.dispatcher_status_counts[status] += 1
-                file_name = self.config.generate.output_dir + endpoint + ".jsonl"
+                if status not in self.status_counts: self.status_counts[status] = 1
+                else: self.status_counts[status] += 1
+                file_name = self.config.data_dir + endpoint + ".jsonl"
                 if response.status not in [ 200, 201 ]:
-                    self.profile("  error with line {0} of {1}; PAYLOAD: {2}; RESPONSE: {3}".format(line, file_name, data, body))
-                    self.dispatcher_errors += 1
-                if not self.skip_change_check:
+                    self.profile("  ERROR with line {0} of {1}; ENDPOINT: {2}{3}; PAYLOAD: {4}; STATUS: {5}; RESPONSE: {6}".format(line, file_name, self.config.edfi_api.data_url, endpoint, data, status, body))
+                    self.errors += 1
+                if not self.force:
                     self.hashlog[hash] = (round(time.time()), response.status)
             # async with client.post(destination,data) as response:
             #     print(response)
@@ -271,7 +303,7 @@ class Lightbeam:
             #     if not self.skip_change_check:
             #         self.hashlog[hash] = (round(time.time()), response.status)
         except Exception as e:
-            self.dispatcher_errors += 1
+            self.errors += 1
             print(e)
             self.profile("  (at line {0} of {1}; PAYLOAD: {2} )".format(line, file_name, data))
 
@@ -291,7 +323,7 @@ class Lightbeam:
         return hashlog
 
     def save_hashlog(self, hashlog_file, hashlog):
-        if not os.path.isdir(self.config.state_dir):
-            os.mkdir(self.config.state_dir)
+        if not os.path.isdir(os.path.expanduser(self.config.state_dir)):
+            os.mkdir(os.path.expanduser(self.config.state_dir))
         with open(hashlog_file, 'wb') as f:
             pickle.dump(hashlog, f)

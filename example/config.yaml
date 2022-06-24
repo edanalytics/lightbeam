@@ -1,13 +1,18 @@
 state_dir: ~/.lightbeam/
 data_dir: example/
-edfi_api_base_url: https://localhost/api
-edfi_api_mode: year_specific
-edfi_api_year: 2021
-edfi_api_client_id: populated
-edfi_api_client_secret: populatedSecret
-connection_pool_size: 8
-num_retries: 10
-backoff_factor: 1.5
-status_forcelist: [429, 500, 501, 503, 504]
+edfi_api:
+  base_url: https://localhost/api
+  verify_ssl: False
+  version: 3
+  mode: year_specific
+  year: 2021
+  client_id: populated
+  client_secret: populatedSecret
+connection:
+  pool_size: 8 # simultantous connections
+  timeout: 60 # seconds
+  num_retries: 10
+  retry_statuses: [429, 500, 501, 503, 504]
+  backoff_factor: 1.5
 verbose: True
 show_stacktrace: True
