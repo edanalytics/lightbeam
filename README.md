@@ -63,14 +63,14 @@ show_stacktrace: True
 * (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location.
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
-  * The `version` as one of `3` or `2` (currently unsupported).
+  * The `version` as one of `3` or `2` (`2` is currently unsupported).
   * (optional) The `mode` as one of `shared_instance`, `sandbox`, `district_specific`, `year_specific`, or `instance_year_specific`.
   * (required if `mode` is `year_specific` or `instance_year_specific`) The `year` used to build the resource URL. The default is the current year.
   * (required if `mode` is `instance_year_specific`) The `instance_code` used to build the resource URL. The default is none.
   * (required) Specify the `client_id` to use when connecting to the Ed-Fi API.
   * (required) Specify the `client_secret` to use when connecting to the Ed-Fi API.
 * Specify the `connection` parameters to use when making requests to the API including
-  * (optional) The `pool_size`. The default is 8. The optimal setting will depend on how powerful your Ed-Fi API is.
+  * (optional) The `pool_size`. The default is 8. The optimal setting depends on the Ed-Fi API's capabilities.
   * (optional) The `timeout` (in seconds) to wait for each connection attempt. The default is `60` seconds.
   * (optional) The `num_retries` to do in case of request failures. The default is `10`.
   * (optional) The `backoff_factor` to use for the exponential backoff. The default is `1.5`.
