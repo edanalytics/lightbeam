@@ -41,33 +41,40 @@ An example YAML configuration is below, followed by documentation of each option
 verbose: True
 state_dir: ~/.lighbeam/
 data_dir: ./
-edfi_api_base_url: https://api.schooldistrict.org/v5.3/api/
-edfi_api_version: 3
-edfi_api_mode: year_specific
-edfi_api_year: 2021
-edfi_api_client_id: yourID
-edfi_api_client_secret: yourSecret
-connection_pool_size: 8
-connection_timeout: 60
-num_retries: 10
-backoff_factor: 1.5
-retry_statuses: [429, 500, 502, 503, 504]
+edfi_api:
+  base_url: https://api.schooldistrict.org/v5.3/api/
+  version: 3
+  mode: year_specific
+  year: 2021
+  client_id: yourID
+  client_secret: yourSecret
+connection:
+  pool_size: 8
+  timeout: 60
+  num_retries: 10
+  backoff_factor: 1.5
+  retry_statuses: [429, 500, 502, 503, 504]
+  verify_ssl: True
 verbose: True
 show_stacktrace: True
 ```
 * (optional) Turn on `verbose` output. The default is `False`.
 * (optional) `state_dir` is where [state](#state) is stored. The default is `~/.lightbeam/` on *nix systems, `C:/Users/USER/.lightbeam/` on Windows systems.
 * (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location.
-* (optional) Specify the `edfi_api_base_url` to which to connect. The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
-* (optional) Specify the `edfi_api_mode` as one of `shared_instance`, `sandbox`, `district_specific`, `year_specific`, or `instance_year_specific`.
-* (required if `edfi_api_mode` is `year_specific` or `instance_year_specific`) Specify the `edfi_api_year` used to build the resource URL. The default is the current year.
-* (required if `edfi_api_mode` is `instance_year_specific`) Specify the `edfi_api_instance_code` used to build the resource URL.
-* (required) Specify the `edfi_api_client_id` to use when connecting to the Ed-Fi API.
-* (required) Specify the `edfi_api_client_secret` to use when connecting to the Ed-Fi API.
-* (optional) Specify the `connection_pool_size` to use when making requests to the API. The default is 8. The optimal setting will depend on how powerful your Ed-Fi API is.
-* (optional) Specify the `num_retries` to do in case of request failures.
-* (optional) Specify the `backoff_factor` to use for the exponential backoff.
-* (optional) Specify the `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry.
+* Specify the details of the `edfi_api` to which to connect including
+  * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
+  * The `version` as one of `3` or `2` (currently unsupported).
+  * (optional) The `mode` as one of `shared_instance`, `sandbox`, `district_specific`, `year_specific`, or `instance_year_specific`.
+  * (required if `mode` is `year_specific` or `instance_year_specific`) The `year` used to build the resource URL. The default is the current year.
+  * (required if `mode` is `instance_year_specific`) The `instance_code` used to build the resource URL. The default is none.
+  * (required) Specify the `client_id` to use when connecting to the Ed-Fi API.
+  * (required) Specify the `client_secret` to use when connecting to the Ed-Fi API.
+* Specify the `connection` parameters to use when making requests to the API including
+  * (optional) The `pool_size`. The default is 8. The optimal setting will depend on how powerful your Ed-Fi API is.
+  * (optional) The `timeout` (in seconds) to wait for each connection attempt. The default is `60` seconds.
+  * (optional) The `num_retries` to do in case of request failures. The default is `10`.
+  * (optional) The `backoff_factor` to use for the exponential backoff. The default is `1.5`.
+  * (optional) The `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry. The default is `[429, 500, 501, 503, 504]`.
 * (optional) Specify whether or not to show `verbose` output. The default is `False`.
 * (optional) Specify whether to show a stacktrace for runtime errors. The default is `False`.
 

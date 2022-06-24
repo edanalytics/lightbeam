@@ -2,7 +2,6 @@ state_dir: ~/.lightbeam/
 data_dir: example/
 edfi_api:
   base_url: https://localhost/api
-  verify_ssl: False
   version: 3
   mode: year_specific
   year: 2021
@@ -14,5 +13,6 @@ connection:
   num_retries: 10
   retry_statuses: [429, 500, 501, 503, 504]
   backoff_factor: 1.5
+  verify_ssl: False
 verbose: True
 show_stacktrace: True
