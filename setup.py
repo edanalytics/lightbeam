@@ -31,7 +31,7 @@ setup (
     ''',
     zip_safe=False,
     author="Tom Reitz",
-    keyword="data, transmission, api, edfi",
+    keywords="data, transmission, api, edfi",
     long_description=README,
     long_description_content_type="text/markdown",
     license='Apache 2.0',
