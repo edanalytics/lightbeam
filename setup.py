@@ -29,6 +29,7 @@ setup (
         [console_scripts]
         lightbeam=lightbeam.__main__:main
     ''',
+    zip_safe=False,
     author="Tom Reitz",
     keyword="data, transmission, api, edfi",
     long_description=README,

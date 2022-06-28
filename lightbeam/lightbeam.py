@@ -140,7 +140,7 @@ class Lightbeam:
     
     # sort destinations by Ed-Fi dependency-order:
     def get_sorted_endpoints(self, endpoints):
-        with open(f"resources/ed-fi-ordered-dependencies.txt", 'r') as file:
+        with open(os.path.join(os.path.dirname(__file__), "resources", "ed-fi-ordered-dependencies.txt"), 'r') as file:
             deps = file.readlines()
             deps = [k.strip() for k in deps]
             sorted = [dep for dep in deps if dep in endpoints]
