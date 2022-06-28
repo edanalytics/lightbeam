@@ -30,7 +30,7 @@ setup (
         lightbeam=lightbeam.__main__:main
     ''',
     author="Tom Reitz",
-    keyword="data, trasmission, api edfi",
+    keyword="data, transmission, api, edfi",
     long_description=README,
     long_description_content_type="text/markdown",
     license='Apache 2.0',

@@ -15,4 +15,4 @@ connection:
   backoff_factor: 1.5
   verify_ssl: False
 verbose: True
-show_stacktrace: True
+show_stacktrace: False
