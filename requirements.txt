@@ -1,5 +1,6 @@
 wheel
 requests
+python-dateutil
 pyyaml
 asyncio
 aiohttp

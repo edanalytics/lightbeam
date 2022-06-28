@@ -23,6 +23,7 @@ setup (
     description = 'Sends JSONL data into an Ed-Fi API',
     version = '0.0.1',
     packages = find_packages(), # list of all packages
+    package_data={'lightbeam': ['resources/*.txt']},
     install_requires = install_requires,
     python_requires='>=3',
     entry_points='''
