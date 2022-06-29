@@ -246,6 +246,8 @@ class Lightbeam:
             self.hashlog = self.load_hashlog(hashlog_file)
             
             file_name = self.config.data_dir + endpoint + ".jsonl"
+            self.num_finished = 0
+            self.status_counts = {}
             tasks = []
             with open(file_name) as file:
                 num_skipped = 0
@@ -272,11 +274,18 @@ class Lightbeam:
                         tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
                 if num_skipped>0:
                     self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(num_skipped, counter))
+            tasks.append(asyncio.ensure_future(self.update_every_second_until_done(counter)))
             await self.gather_with_concurrency(self.config.connection.pool_size, *tasks) # execute them concurrently
             self.save_hashlog(hashlog_file, self.hashlog)
     
         if self.errors > 10:
             raise Exception("more than 10 errors, terminating. Please review the errors, fix data errors or network conditions, and dispatch again.")
+
+    async def update_every_second_until_done(self, counter):
+        while self.num_finished < counter:
+            if len(self.status_counts.keys())>0:
+                self.profile("                       (status counts: {0}) ".format(str(self.status_counts)))
+            await asyncio.sleep(1)
 
     async def do_post(self, endpoint, data, client, line, hash):
         file_name = self.config.data_dir + endpoint + ".jsonl"
@@ -284,6 +293,7 @@ class Lightbeam:
             async with client.post(self.config.edfi_api.data_url + endpoint, data=data, ssl=self.config.connection.verify_ssl) as response:
                 body = await response.text()
                 status = str(response.status)
+                self.num_finished += 1
                 if status not in self.status_counts: self.status_counts[status] = 1
                 else: self.status_counts[status] += 1
                 if response.status not in [ 200, 201 ]:

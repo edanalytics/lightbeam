@@ -8,7 +8,7 @@ edfi_api:
   client_id: populated
   client_secret: populatedSecret
 connection:
-  pool_size: 8 # simultantous connections
+  pool_size: 8 # simultaneous connections
   timeout: 60 # seconds
   num_retries: 10
   retry_statuses: [429, 500, 501, 503, 504]
