@@ -191,6 +191,7 @@ class Lightbeam:
 
         api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.connection.verify_ssl).json()
         self.config.edfi_api.oauth_url = api_base["urls"]["oauth"]
+        self.config.edfi_api.dependencies_url = api_base["urls"]["dependencies"]
         self.config.edfi_api.data_url = api_base["urls"]["dataManagementApi"] + 'ed-fi/'
         self.do_oauth()
         
@@ -228,7 +229,7 @@ class Lightbeam:
             timeout=aiohttp.ClientTimeout(total=self.config.connection.timeout),
             retry_options=ExponentialRetry(
                 attempts=self.config.connection.num_retries,
-                factor=self.config.connection_backoff_factor,
+                factor=self.config.connection.backoff_factor,
                 statuses=self.config.connection.retry_statuses
                 ),
             connector=aiohttp.connector.TCPConnector(limit=self.config.connection.pool_size),
@@ -278,13 +279,13 @@ class Lightbeam:
             raise Exception("more than 10 errors, terminating. Please review the errors, fix data errors or network conditions, and dispatch again.")
 
     async def do_post(self, endpoint, data, client, line, hash):
+        file_name = self.config.data_dir + endpoint + ".jsonl"
         try:
             async with client.post(self.config.edfi_api.data_url + endpoint, data=data, ssl=self.config.connection.verify_ssl) as response:
                 body = await response.text()
                 status = str(response.status)
                 if status not in self.status_counts: self.status_counts[status] = 1
                 else: self.status_counts[status] += 1
-                file_name = self.config.data_dir + endpoint + ".jsonl"
                 if response.status not in [ 200, 201 ]:
                     self.profile("  ERROR with line {0} of {1}; ENDPOINT: {2}{3}; PAYLOAD: {4}; STATUS: {5}; RESPONSE: {6}".format(line, file_name, self.config.edfi_api.data_url, endpoint, data, status, body))
                     self.errors += 1
