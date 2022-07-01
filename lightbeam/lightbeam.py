@@ -172,7 +172,7 @@ class Lightbeam:
                 try:
                     instance = json.loads(line)
                 except Exception as e:
-                    self.profile(f"... VALIDATION ERROR (line {counter}): invalid JSON", True)
+                    self.profile(f"... VALIDATION ERROR (line {counter}): invalid JSON" + str(e).replace(" line 1",""), True)
                     errors += 1
                     continue
 
@@ -188,7 +188,7 @@ class Lightbeam:
             
             if errors==0: self.profile(f"... all lines validate ok!")
             else:
-                self.profile(f"... validation errors on {errors} out of {counter} lines; see details above.", True)
+                self.profile(f"... VALIDATION ERRORS on {errors} of {counter} lines in {jsonl_file_name}; see details above.", True)
                 exit(1)
 
 
@@ -225,6 +225,13 @@ class Lightbeam:
         # print(session.headers)
         # self.edfi_client = edfi_client
 
+        # filter down to only selected endpoints
+        if selector!="*" and selector!="":
+            if "," in selector:
+                selected_endpoints = selector.split(",")
+                endpoints = [e for e in endpoints if e in selected_endpoints]
+            else: endpoints = [ selector ]
+
         # do validation:
         if self.config.validate:
             swagger_file_name = self.config.swagger
@@ -245,12 +252,6 @@ class Lightbeam:
         if len(endpoints)==0:
             print("FATAL: `data_dir` {0} has no *.jsonl files that match an Ed-Fi resource or descriptor name".format(self.config.data_dir))
             exit(1)
-        # filter down to only selected endpoints
-        if selector!="*" and selector!="":
-            if "," in selector:
-                selected_endpoints = selector.split(",")
-                endpoints = [e for e in endpoints if e in selected_endpoints]
-            else: endpoints = [ selector ]
 
         # get token with which to send requests
         self.do_oauth()
