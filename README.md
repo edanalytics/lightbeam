@@ -41,6 +41,8 @@ An example YAML configuration is below, followed by documentation of each option
 verbose: True
 state_dir: ~/.lighbeam/
 data_dir: ./
+validate: True
+swagger: swagger.json
 edfi_api:
   base_url: https://api.schooldistrict.org/v5.3/api/
   version: 3
@@ -61,6 +63,7 @@ show_stacktrace: True
 * (optional) Turn on `verbose` output. The default is `False`.
 * (optional) `state_dir` is where [state](#state) is stored. The default is `~/.lightbeam/` on *nix systems, `C:/Users/USER/.lightbeam/` on Windows systems.
 * (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location.
+* (optional) Choose to `validate` your JSONL before transmitting it. If `validate` is `True`, then `swagger` is a required path to an Ed-Fi resource Swagger JSON file or a [URL to Swagger JSON online](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json).
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
   * The `version` as one of `3` or `2` (`2` is currently unsupported).

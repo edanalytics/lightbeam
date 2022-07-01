@@ -9,6 +9,9 @@ from yaml.loader import SafeLoader
 import hashlib
 from glob import glob
 
+from jsonschema import RefResolver
+from jsonschema import Draft4Validator
+
 import requests
 from requests.adapters import HTTPAdapter, Retry
 import logging
@@ -73,6 +76,8 @@ class Lightbeam:
     config_defaults = {
         "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
         "source_dir": "./",
+        "validate": False,
+        "swagger": "",
         "edfi_api": {
             "base_url": "https://localhost/api",
             "version": 3,
@@ -134,17 +139,58 @@ class Lightbeam:
                     user[k] = self.merge_config(user[k], v)
         return user
     
-    def profile(self, msg):
+    def profile(self, msg, force=False):
         t = time.time()
-        if self.config.verbose: print(str(t-self.t0) + "\t" + msg)
+        if self.config.verbose or force: print(str(t-self.t0) + "\t" + msg)
     
     # sort destinations by Ed-Fi dependency-order:
     def get_sorted_endpoints(self, endpoints):
-        with open(os.path.join(os.path.dirname(__file__), "resources", "ed-fi-ordered-dependencies.txt"), 'r') as file:
-            deps = file.readlines()
-            deps = [k.strip() for k in deps]
-            sorted = [dep for dep in deps if dep in endpoints]
-            return sorted
+        response = requests.get(
+            self.config.edfi_api.dependencies_url,
+            verify=self.config.connection.verify_ssl)
+        ordered_endpoints = []
+        for e in response.json():
+            ordered_endpoints.append(e["resource"].replace("/ed-fi/", ""))
+
+        return [e for e in ordered_endpoints if e in endpoints]
+    
+    def validate(self, swagger, endpoint):
+        if endpoint[-3:]=="ies": definition = "edFi_" + endpoint[0:-3] + "y"
+        else: definition = "edFi_" + endpoint[0:-1]
+        resource_schema = swagger["definitions"][definition]
+
+        resolver = RefResolver("test", swagger, swagger)
+        validator = Draft4Validator(resource_schema, resolver=resolver)
+
+        jsonl_file_name = self.config.data_dir + endpoint + ".jsonl"
+        self.profile(f"validating {jsonl_file_name} against {definition} schema...")
+        with open(jsonl_file_name) as f:
+            counter = 0
+            errors = 0
+            for line in f:
+                counter += 1
+                try:
+                    instance = json.loads(line)
+                except Exception as e:
+                    self.profile(f"... VALIDATION ERROR (line {counter}): invalid JSON", True)
+                    errors += 1
+                    continue
+
+                try:
+                    validator.validate(instance)
+                except Exception as e:
+                    e_path = [str(x) for x in list(e.path)]
+                    context = ""
+                    if len(e_path)>0: context = " in " + " -> ".join(e_path)
+                    self.profile(f"... VALIDATION ERROR (line {counter}): " + str(e.message) + context, True)
+                    errors += 1
+                    continue
+            
+            if errors==0: self.profile(f"... all lines validate ok!")
+            else:
+                self.profile(f"... validation errors on {errors} out of {counter} lines; see details above.", True)
+                exit(1)
+
 
     def dispatch(self, selector="*"):
         if not os.path.isdir(self.config.data_dir):
@@ -156,16 +202,6 @@ class Lightbeam:
         if len(endpoints)==0:
             print("FATAL: `data_dir` {0} has no *.jsonl files".format(self.config.data_dir))
             exit(1)
-        endpoints = self.get_sorted_endpoints(endpoints) # make sure we process destinations in Ed-Fi dependency order
-        if len(endpoints)==0:
-            print("FATAL: `data_dir` {0} has no *.jsonl files that match an Ed-Fi resource or descriptor name".format(self.config.data_dir))
-            exit(1)
-        # filter down to only selected endpoints
-        if selector!="*" and selector!="":
-            if "," in selector:
-                selected_endpoints = selector.split(",")
-                endpoints = [e for e in endpoints if e in selected_endpoints]
-            else: endpoints = [ selector ]
         
         logging.captureWarnings(True) # turn off annoying SSL warnings (is this DANGEROUSSSS??)
 
@@ -189,12 +225,36 @@ class Lightbeam:
         # print(session.headers)
         # self.edfi_client = edfi_client
 
+        # do validation:
+        if self.config.validate:
+            swagger_file_name = self.config.swagger
+            if "http://" in self.config.swagger or "https://" in self.config.swagger:
+                swagger = json.loads(requests.get(self.config.swagger).text)
+            else:
+                swagger = json.load(open(swagger_file_name))
+            for endpoint in endpoints:
+                self.validate(swagger, endpoint)
+
         api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.connection.verify_ssl).json()
         self.config.edfi_api.oauth_url = api_base["urls"]["oauth"]
         self.config.edfi_api.dependencies_url = api_base["urls"]["dependencies"]
         self.config.edfi_api.data_url = api_base["urls"]["dataManagementApi"] + 'ed-fi/'
-        self.do_oauth()
         
+        # make sure we process destinations in Ed-Fi dependency order
+        endpoints = self.get_sorted_endpoints(endpoints)
+        if len(endpoints)==0:
+            print("FATAL: `data_dir` {0} has no *.jsonl files that match an Ed-Fi resource or descriptor name".format(self.config.data_dir))
+            exit(1)
+        # filter down to only selected endpoints
+        if selector!="*" and selector!="":
+            if "," in selector:
+                selected_endpoints = selector.split(",")
+                endpoints = [e for e in endpoints if e in selected_endpoints]
+            else: endpoints = [ selector ]
+
+        # get token with which to send requests
+        self.do_oauth()
+
         # create state_dir if it doesn't exist:
         state_dir = os.path.expanduser(self.config.state_dir)
         if not os.path.isdir(state_dir):
@@ -214,14 +274,14 @@ class Lightbeam:
                 self.config.edfi_api.client_secret
                 ),
             verify=self.config.connection.verify_ssl)
-        token = token_response.json()["access_token"]
+        self.token = token_response.json()["access_token"]
         # self.profile("(using OAuth token {0})".format(token))
 
         # these headers are sent with every subsequent API POST request:
         self.config.edfi_api.headers = {
             "accept": "application/json",
             "Content-Type": "application/json",
-            "authorization": "Bearer " + token
+            "authorization": "Bearer " + self.token
         }
 
     async def do_dispatch(self, endpoint):
@@ -250,7 +310,7 @@ class Lightbeam:
             self.status_counts = {}
             tasks = []
             with open(file_name) as file:
-                num_skipped = 0
+                self.num_skipped = 0
                 counter = 0
                 for line in file:
                     data = line.strip()
@@ -268,12 +328,12 @@ class Lightbeam:
                         ):
                             tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
                         else:
-                            num_skipped += 1
+                            self.num_skipped += 1
                             continue
                     else: # never before seen! send
                         tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
-                if num_skipped>0:
-                    self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(num_skipped, counter))
+                if self.num_skipped>0:
+                    self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.num_skipped, counter))
             tasks.append(asyncio.ensure_future(self.update_every_second_until_done(counter)))
             await self.gather_with_concurrency(self.config.connection.pool_size, *tasks) # execute them concurrently
             self.save_hashlog(hashlog_file, self.hashlog)
@@ -282,7 +342,7 @@ class Lightbeam:
             raise Exception("more than 10 errors, terminating. Please review the errors, fix data errors or network conditions, and dispatch again.")
 
     async def update_every_second_until_done(self, counter):
-        while self.num_finished < counter:
+        while self.num_finished + self.num_skipped < counter:
             if len(self.status_counts.keys())>0:
                 self.profile("                       (status counts: {0}) ".format(str(self.status_counts)))
             await asyncio.sleep(1)

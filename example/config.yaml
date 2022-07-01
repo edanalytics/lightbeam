@@ -1,5 +1,7 @@
 state_dir: ~/.lightbeam/
 data_dir: example/
+validate: True
+swagger: https://api.ed-fi.org/v5.3/api/metadata/data/v3/resources/swagger.json
 edfi_api:
   base_url: https://localhost/api
   version: 3
