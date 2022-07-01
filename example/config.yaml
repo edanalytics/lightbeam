@@ -16,5 +16,5 @@ connection:
   retry_statuses: [429, 500, 501, 503, 504]
   backoff_factor: 1.5
   verify_ssl: False
-verbose: True
+verbose: False
 show_stacktrace: False

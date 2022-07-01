@@ -105,6 +105,9 @@ lightbeam --version
 # Features
 This tool includes several special features:
 
+## Validation
+Set `validate: True` and a `swagger: file | URL` in your [YAML configuration](#setup) to validate each line of JSONL against an Ed-Fi API swagger specification. This won't, of course, find invalid reference errors, but is helpful for finding payloads that are invalid JSON or are missing required fields, etc.
+
 ## Selectors
 Send only a subset of resources or descriptors in your `data_dir` using a selector:
 ```bash
