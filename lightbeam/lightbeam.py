@@ -172,7 +172,8 @@ class Lightbeam:
                 try:
                     instance = json.loads(line)
                 except Exception as e:
-                    self.profile(f"... VALIDATION ERROR (line {counter}): invalid JSON" + str(e).replace(" line 1",""), True)
+                    if errors < 10:
+                        self.profile(f"... VALIDATION ERROR (line {counter}): invalid JSON" + str(e).replace(" line 1",""), True)
                     errors += 1
                     continue
 
