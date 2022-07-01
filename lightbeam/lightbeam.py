@@ -179,15 +179,18 @@ class Lightbeam:
                 try:
                     validator.validate(instance)
                 except Exception as e:
-                    e_path = [str(x) for x in list(e.path)]
-                    context = ""
-                    if len(e_path)>0: context = " in " + " -> ".join(e_path)
-                    self.profile(f"... VALIDATION ERROR (line {counter}): " + str(e.message) + context, True)
+                    if errors < 10:
+                        e_path = [str(x) for x in list(e.path)]
+                        context = ""
+                        if len(e_path)>0: context = " in " + " -> ".join(e_path)
+                        self.profile(f"... VALIDATION ERROR (line {counter}): " + str(e.message) + context, True)
                     errors += 1
                     continue
             
             if errors==0: self.profile(f"... all lines validate ok!")
             else:
+                num = errors - 10
+                if errors > 10: self.profile(f"... and {num} others!", True)
                 self.profile(f"... VALIDATION ERRORS on {errors} of {counter} lines in {jsonl_file_name}; see details above.", True)
                 exit(1)
 
