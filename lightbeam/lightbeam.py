@@ -163,7 +163,7 @@ class Lightbeam:
         validator = Draft4Validator(resource_schema, resolver=resolver)
 
         jsonl_file_name = self.config.data_dir + endpoint + ".jsonl"
-        self.profile(f"validating {jsonl_file_name} against {definition} schema...")
+        self.profile(f"validating {endpoint}.jsonl against {definition} schema...")
         with open(jsonl_file_name) as f:
             counter = 0
             errors = 0
