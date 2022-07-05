@@ -77,7 +77,8 @@ class Lightbeam:
         "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
         "source_dir": "./",
         "validate": False,
-        "swagger": "",
+        "resources_swagger": "",
+        "descriptors_swagger": "",
         "edfi_api": {
             "base_url": "https://localhost/api",
             "version": 3,
@@ -144,16 +145,45 @@ class Lightbeam:
         if self.config.verbose or force: print(str(t-self.t0) + "\t" + msg)
     
     # sort destinations by Ed-Fi dependency-order:
-    def get_sorted_endpoints(self, endpoints):
+    def get_sorted_endpoints(self, endpoints="*"):
         response = requests.get(
             self.config.edfi_api.dependencies_url,
             verify=self.config.connection.verify_ssl)
         ordered_endpoints = []
         for e in response.json():
             ordered_endpoints.append(e["resource"].replace("/ed-fi/", ""))
-
-        return [e for e in ordered_endpoints if e in endpoints]
+        return [e for e in ordered_endpoints if endpoints=="*" or e in endpoints]
     
+    def get_endpoints_with_data(self, endpoints):
+        # build file list:
+        endpoints_with_data = []
+        for endpoint in endpoints:
+            if os.path.isfile(os.path.join(self.config.data_dir, endpoint + ".jsonl")):
+                endpoints_with_data.append(endpoint)
+            if os.path.isdir(os.path.join(self.config.data_dir + endpoint)):
+                for file in os.listdir(os.path.join(self.config.data_dir + endpoint)):
+                    if file.endswith('.jsonl'):
+                        endpoints_with_data.append(endpoint)
+                        break
+        return list(set(endpoints_with_data))
+    
+    def get_data_files_for_endpoint(self, endpoint):
+        file_list = []
+        if os.path.isfile(os.path.join(self.config.data_dir, endpoint + ".jsonl")):
+            file_list.append(os.path.join(self.config.data_dir, endpoint + ".jsonl"))
+        if os.path.isdir(os.path.join(self.config.data_dir + endpoint)):
+            for file in os.listdir(os.path.join(self.config.data_dir + endpoint)):
+                if file.endswith('.jsonl'):
+                    file_list.append(os.path.join(self.config.data_dir, endpoint, file))
+        return file_list
+
+    def get_jsonl_for_endpoint(self, endpoint):
+        file_list = self.get_data_files_for_endpoint(endpoint)
+        for f in file_list:
+            with open(f) as fd:
+                for line in fd:
+                    yield line.strip()
+
     def validate(self, swagger, endpoint):
         if endpoint[-3:]=="ies": definition = "edFi_" + endpoint[0:-3] + "y"
         else: definition = "edFi_" + endpoint[0:-1]
@@ -162,53 +192,62 @@ class Lightbeam:
         resolver = RefResolver("test", swagger, swagger)
         validator = Draft4Validator(resource_schema, resolver=resolver)
 
-        jsonl_file_name = self.config.data_dir + endpoint + ".jsonl"
-        self.profile(f"validating {endpoint}.jsonl against {definition} schema...")
-        with open(jsonl_file_name) as f:
-            counter = 0
-            errors = 0
-            for line in f:
-                counter += 1
-                try:
-                    instance = json.loads(line)
-                except Exception as e:
-                    if errors < 10:
-                        self.profile(f"... VALIDATION ERROR (line {counter}): invalid JSON" + str(e).replace(" line 1",""), True)
-                    errors += 1
-                    continue
+        endpoint_data_files = self.get_data_files_for_endpoint(endpoint)
+        for file in endpoint_data_files:
+            self.profile(f"validating {file} against {definition} schema...")
+            with open(file) as f:
+                counter = 0
+                errors = 0
+                for line in f:
+                    counter += 1
+                    try:
+                        instance = json.loads(line)
+                    except Exception as e:
+                        if errors < 10:
+                            self.profile(f"... VALIDATION ERROR (line {counter}): invalid JSON" + str(e).replace(" line 1",""), True)
+                        errors += 1
+                        continue
 
-                try:
-                    validator.validate(instance)
-                except Exception as e:
-                    if errors < 10:
-                        e_path = [str(x) for x in list(e.path)]
-                        context = ""
-                        if len(e_path)>0: context = " in " + " -> ".join(e_path)
-                        self.profile(f"... VALIDATION ERROR (line {counter}): " + str(e.message) + context, True)
-                    errors += 1
-                    continue
-            
-            if errors==0: self.profile(f"... all lines validate ok!")
-            else:
-                num = errors - 10
-                if errors > 10: self.profile(f"... and {num} others!", True)
-                self.profile(f"... VALIDATION ERRORS on {errors} of {counter} lines in {jsonl_file_name}; see details above.", True)
-                exit(1)
+                    try:
+                        validator.validate(instance)
+                    except Exception as e:
+                        if errors < 10:
+                            e_path = [str(x) for x in list(e.path)]
+                            context = ""
+                            if len(e_path)>0: context = " in " + " -> ".join(e_path)
+                            self.profile(f"... VALIDATION ERROR (line {counter}): " + str(e.message) + context, True)
+                        errors += 1
+                        continue
+                
+                if errors==0: self.profile(f"... all lines validate ok!")
+                else:
+                    num = errors - 10
+                    if errors > 10: self.profile(f"... and {num} others!", True)
+                    self.profile(f"... VALIDATION ERRORS on {errors} of {counter} lines in {file}; see details above.", True)
+                    exit(1)
 
 
     def dispatch(self, selector="*"):
+        # check data_dir exists
         if not os.path.isdir(self.config.data_dir):
             print("FATAL: `data_dir` {0} is not a directory".format(self.config.data_dir))
             exit(1)
-        endpoints = []
-        for f_name in glob(os.path.join(self.config.data_dir, '*.jsonl')):
-            endpoints.append(f_name.replace(".jsonl", "").split("/")[-1:][0])
-        if len(endpoints)==0:
+        
+        logging.captureWarnings(True) # turn off annoying SSL warnings (is this DANGEROUSSSS??)
+        api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.connection.verify_ssl).json()
+        self.config.edfi_api.oauth_url = api_base["urls"]["oauth"]
+        self.config.edfi_api.dependencies_url = api_base["urls"]["dependencies"]
+        self.config.edfi_api.data_url = api_base["urls"]["dataManagementApi"] + 'ed-fi/'
+
+        # load all endpoints
+        all_endpoints = self.get_sorted_endpoints()
+        endpoints_with_data = self.get_endpoints_with_data(all_endpoints)
+        
+        # check that we have some data
+        if len(endpoints_with_data)==0:
             print("FATAL: `data_dir` {0} has no *.jsonl files".format(self.config.data_dir))
             exit(1)
         
-        logging.captureWarnings(True) # turn off annoying SSL warnings (is this DANGEROUSSSS??)
-
         if self.older_than!='': self.older_than = dateutil.parser.parse(self.older_than).timestamp()
         if self.newer_than!='': self.newer_than = dateutil.parser.parse(self.newer_than).timestamp()
         if self.resend_status_codes!='': self.resend_status_codes = [int(code) for code in self.resend_status_codes.split(",")]
@@ -233,29 +272,28 @@ class Lightbeam:
         if selector!="*" and selector!="":
             if "," in selector:
                 selected_endpoints = selector.split(",")
-                endpoints = [e for e in endpoints if e in selected_endpoints]
-            else: endpoints = [ selector ]
+                selected_endpoints_with_data = [e for e in endpoints_with_data if e in selected_endpoints]
+            else: selected_endpoints_with_data = [ selector ]
+        else: selected_endpoints_with_data = endpoints_with_data
 
         # do validation:
         if self.config.validate:
-            swagger_file_name = self.config.swagger
-            if "http://" in self.config.swagger or "https://" in self.config.swagger:
-                swagger = json.loads(requests.get(self.config.swagger).text)
+            # load resources swagger:
+            if "http://" in self.config.resources_swagger or "https://" in self.config.resources_swagger:
+                resources_swagger = json.loads(requests.get(self.config.resources_swagger).text)
             else:
-                swagger = json.load(open(swagger_file_name))
-            for endpoint in endpoints:
-                self.validate(swagger, endpoint)
-
-        api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.connection.verify_ssl).json()
-        self.config.edfi_api.oauth_url = api_base["urls"]["oauth"]
-        self.config.edfi_api.dependencies_url = api_base["urls"]["dependencies"]
-        self.config.edfi_api.data_url = api_base["urls"]["dataManagementApi"] + 'ed-fi/'
-        
-        # make sure we process destinations in Ed-Fi dependency order
-        endpoints = self.get_sorted_endpoints(endpoints)
-        if len(endpoints)==0:
-            print("FATAL: `data_dir` {0} has no *.jsonl files that match an Ed-Fi resource or descriptor name".format(self.config.data_dir))
-            exit(1)
+                resources_swagger = json.load(open(self.config.resources_swagger))
+            # load descriptors swagger:
+            if "http://" in self.config.descriptors_swagger or "https://" in self.config.descriptors_swagger:
+                descriptors_swagger = json.loads(requests.get(self.config.descriptors_swagger).text)
+            else:
+                descriptors_swagger = json.load(open(self.config.descriptors_swagger))
+            # validate each endpoint:
+            for endpoint in selected_endpoints_with_data:
+                if "Descriptor" in endpoint:
+                    self.validate(descriptors_swagger, endpoint)
+                else:
+                    self.validate(resources_swagger, endpoint)
 
         # get token with which to send requests
         self.do_oauth()
@@ -265,7 +303,7 @@ class Lightbeam:
         if not os.path.isdir(state_dir):
             os.mkdir(state_dir)
 
-        for endpoint in endpoints:
+        for endpoint in selected_endpoints_with_data:
             self.profile("sending endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_dispatch(endpoint))
             self.profile("finished endpoint {0}! (status counts: {1}) ".format(endpoint, str(self.status_counts)))
@@ -310,38 +348,39 @@ class Lightbeam:
             hashlog_file = os.path.join(os.path.expanduser(self.config.state_dir), f"{endpoint}.dat")
             self.hashlog = self.load_hashlog(hashlog_file)
             
-            file_name = self.config.data_dir + endpoint + ".jsonl"
+            data_files = self.get_data_files_for_endpoint(endpoint)
             self.num_finished = 0
             self.status_counts = {}
             tasks = []
-            with open(file_name) as file:
-                self.num_skipped = 0
-                counter = 0
-                for line in file:
-                    data = line.strip()
-                    hash = 0
-                    # compute hash of current row:
-                    hash = hashlib.md5(data.encode()).digest()
-                    # check if we've posted this data before:
-                    counter += 1
-                    if hash in self.hashlog.keys():
-                        # check if the last post meets criteria for a resend:
-                        if ( self.force
-                            or (self.older_than!='' and self.hashlog[hash][0]<self.older_than)
-                            or (self.newer_than!="" and self.hashlog[hash][0]>self.newer_than)
-                            or (len(self.resend_status_codes)>0 and self.hashlog[hash][1] in self.resend_status_codes)
-                        ):
+            for file_name in data_files:
+                with open(file_name) as file:
+                    self.num_skipped = 0
+                    counter = 0
+                    for line in file:
+                        data = line.strip()
+                        hash = 0
+                        # compute hash of current row:
+                        hash = hashlib.md5(data.encode()).digest()
+                        # check if we've posted this data before:
+                        counter += 1
+                        if hash in self.hashlog.keys():
+                            # check if the last post meets criteria for a resend:
+                            if ( self.force
+                                or (self.older_than!='' and self.hashlog[hash][0]<self.older_than)
+                                or (self.newer_than!="" and self.hashlog[hash][0]>self.newer_than)
+                                or (len(self.resend_status_codes)>0 and self.hashlog[hash][1] in self.resend_status_codes)
+                            ):
+                                tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
+                            else:
+                                self.num_skipped += 1
+                                continue
+                        else: # never before seen! send
                             tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
-                        else:
-                            self.num_skipped += 1
-                            continue
-                    else: # never before seen! send
-                        tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
-                if self.num_skipped>0:
-                    self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.num_skipped, counter))
-            tasks.append(asyncio.ensure_future(self.update_every_second_until_done(counter)))
-            await self.gather_with_concurrency(self.config.connection.pool_size, *tasks) # execute them concurrently
-            self.save_hashlog(hashlog_file, self.hashlog)
+                    if self.num_skipped>0:
+                        self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.num_skipped, counter))
+                tasks.append(asyncio.ensure_future(self.update_every_second_until_done(counter)))
+                await self.gather_with_concurrency(self.config.connection.pool_size, *tasks) # execute them concurrently
+                self.save_hashlog(hashlog_file, self.hashlog)
     
         if self.errors > 10:
             raise Exception("more than 10 errors, terminating. Please review the errors, fix data errors or network conditions, and dispatch again.")

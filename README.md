@@ -42,7 +42,8 @@ verbose: True
 state_dir: ~/.lighbeam/
 data_dir: ./
 validate: True
-swagger: swagger.json
+resources_swagger: swagger/resources.json # local file or URL
+descriptors_swagger: swagger/descriptors.json # local file or URL
 edfi_api:
   base_url: https://api.schooldistrict.org/v5.3/api/
   version: 3
@@ -62,8 +63,8 @@ show_stacktrace: True
 ```
 * (optional) Turn on `verbose` output. The default is `False`.
 * (optional) `state_dir` is where [state](#state) is stored. The default is `~/.lightbeam/` on *nix systems, `C:/Users/USER/.lightbeam/` on Windows systems.
-* (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location.
-* (optional) Choose to `validate` your JSONL before transmitting it. If `validate` is `True`, then `swagger` is a required path to an Ed-Fi resource Swagger JSON file or a [URL to Swagger JSON online](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json).
+* (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location, as well as directory-based files like `{Resource}/*.jsonl` or `{Descriptor}/*.jsonl`.
+* (optional) Choose to `validate` your JSONL before transmitting it. If `validate` is `True`, then `resources_swagger` and `descriptors_swagger` are required paths to an Ed-Fi Swagger JSON file or a URL to Swagger JSON for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) online.
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
   * The `version` as one of `3` or `2` (`2` is currently unsupported).
@@ -106,7 +107,7 @@ lightbeam --version
 This tool includes several special features:
 
 ## Validation
-Set `validate: True` and a `swagger: file | URL` in your [YAML configuration](#setup) to validate each line of JSONL against an Ed-Fi API swagger specification. This won't, of course, find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
+Set `validate: True` and a `resources_swagger: file | URL` and `descriptors_swagger: file | URL` in your [YAML configuration](#setup) to validate each line of JSONL against an Ed-Fi API swagger specification. This won't, of course, find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
 
 
 ## Selectors

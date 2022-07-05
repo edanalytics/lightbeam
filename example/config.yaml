@@ -1,9 +1,11 @@
 state_dir: ~/.lightbeam/
 data_dir: example/
 validate: True
-swagger: https://api.ed-fi.org/v5.3/api/metadata/data/v3/resources/swagger.json
+resources_swagger: https://api.ed-fi.org/v5.3/api/metadata/data/v3/resources/swagger.json
+descriptors_swagger: https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json
 edfi_api:
-  base_url: https://localhost/api
+  base_url: https://api.ed-fi.org/v5.3/api
+  # base_url: http://localhost/api
   version: 3
   mode: year_specific
   year: 2021
@@ -17,4 +19,4 @@ connection:
   backoff_factor: 1.5
   verify_ssl: False
 verbose: True
-show_stacktrace: False
+show_stacktrace: True
