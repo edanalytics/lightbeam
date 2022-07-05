@@ -353,10 +353,10 @@ class Lightbeam:
             self.status_counts = {}
             tasks = []
             for file_name in data_files:
+                total_counter = 0
+                todo_counter = 0
                 with open(file_name) as file:
                     self.num_skipped = 0
-                    total_counter = 0
-                    todo_counter = 0
                     for line in file:
                         data = line.strip()
                         hash = 0
