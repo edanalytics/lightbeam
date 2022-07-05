@@ -355,14 +355,15 @@ class Lightbeam:
             for file_name in data_files:
                 with open(file_name) as file:
                     self.num_skipped = 0
-                    counter = 0
+                    total_counter = 0
+                    todo_counter = 0
                     for line in file:
                         data = line.strip()
                         hash = 0
                         # compute hash of current row:
                         hash = hashlib.md5(data.encode()).digest()
                         # check if we've posted this data before:
-                        counter += 1
+                        total_counter += 1
                         if hash in self.hashlog.keys():
                             # check if the last post meets criteria for a resend:
                             if ( self.force
@@ -370,15 +371,17 @@ class Lightbeam:
                                 or (self.newer_than!="" and self.hashlog[hash][0]>self.newer_than)
                                 or (len(self.resend_status_codes)>0 and self.hashlog[hash][1] in self.resend_status_codes)
                             ):
-                                tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
+                                todo_counter += 1
+                                tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, total_counter, hash)))
                             else:
                                 self.num_skipped += 1
                                 continue
                         else: # never before seen! send
-                            tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, counter, hash)))
+                            todo_counter += 1
+                            tasks.append(asyncio.ensure_future(self.do_post(endpoint, data, client, total_counter, hash)))
                     if self.num_skipped>0:
-                        self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.num_skipped, counter))
-                tasks.append(asyncio.ensure_future(self.update_every_second_until_done(counter)))
+                        self.profile("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.num_skipped, total_counter))
+                tasks.append(asyncio.ensure_future(self.update_every_second_until_done(todo_counter)))
                 await self.gather_with_concurrency(self.config.connection.pool_size, *tasks) # execute them concurrently
                 self.save_hashlog(hashlog_file, self.hashlog)
     
