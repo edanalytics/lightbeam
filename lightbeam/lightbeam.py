@@ -21,7 +21,7 @@ import aiohttp
 from aiohttp_retry import RetryClient, ExponentialRetry
 from urllib3 import PoolManager
 
-# from edfi_api_client import EdFiBase, EdFiClient
+from edfi_api_client import EdFiBase
 
 
 parameters = {}
@@ -77,8 +77,6 @@ class Lightbeam:
         "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
         "source_dir": "./",
         "validate": False,
-        "resources_swagger": "",
-        "descriptors_swagger": "",
         "edfi_api": {
             "base_url": "https://localhost/api",
             "version": 3,
@@ -158,14 +156,14 @@ class Lightbeam:
         # build file list:
         endpoints_with_data = []
         for endpoint in endpoints:
-            if os.path.isfile(os.path.join(self.config.data_dir, endpoint + ".jsonl")):
+            if os.path.isfile(os.path.join(self.config.data_dir, endpoint + ".jsonl")) and endpoint not in endpoints_with_data:
                 endpoints_with_data.append(endpoint)
             if os.path.isdir(os.path.join(self.config.data_dir + endpoint)):
                 for file in os.listdir(os.path.join(self.config.data_dir + endpoint)):
-                    if file.endswith('.jsonl'):
+                    if file.endswith('.jsonl') and endpoint not in endpoints_with_data:
                         endpoints_with_data.append(endpoint)
                         break
-        return list(set(endpoints_with_data))
+        return endpoints_with_data
     
     def get_data_files_for_endpoint(self, endpoint):
         file_list = []
@@ -234,10 +232,24 @@ class Lightbeam:
             exit(1)
         
         logging.captureWarnings(True) # turn off annoying SSL warnings (is this DANGEROUSSSS??)
-        api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.connection.verify_ssl).json()
+        # api_base = requests.get(self.config.edfi_api.base_url, verify=self.config.connection.verify_ssl).json()
+        try:
+            edfi = EdFiBase(self.config.edfi_api.base_url,
+                self.config.edfi_api.client_id,
+                self.config.edfi_api.client_secret,
+                api_version=self.config.edfi_api.version,
+                api_year=self.config.edfi_api.year,
+                api_mode=self.config.edfi_api.mode,
+                instance_code=self.config.edfi_api.instance_code,
+                verify_ssl=False)
+            api_base = edfi.get_info()
+        except Exception as e:
+            print("FATAL: could not connect to {0} ({1})".format(self.config.edfi_api.base_url, str(e)))
+            exit(1)
         self.config.edfi_api.oauth_url = api_base["urls"]["oauth"]
         self.config.edfi_api.dependencies_url = api_base["urls"]["dependencies"]
         self.config.edfi_api.data_url = api_base["urls"]["dataManagementApi"] + 'ed-fi/'
+        self.config.edfi_api.open_api_metadata_url = api_base["urls"]["openApiMetadata"]
 
         # load all endpoints
         all_endpoints = self.get_sorted_endpoints()
@@ -252,22 +264,6 @@ class Lightbeam:
         if self.newer_than!='': self.newer_than = dateutil.parser.parse(self.newer_than).timestamp()
         if self.resend_status_codes!='': self.resend_status_codes = [int(code) for code in self.resend_status_codes.split(",")]
 
-        # using the EA's edfi_api_client library:
-        # edfi_client = EdFiBase(
-        #     base_url=self.config.edfi_api_base_url,
-        #     client_key=self.config.edfi_api_client_id,
-        #     client_secret=self.config.edfi_api_client_secret,
-        #     api_version=self.config.edfi_api_version,
-        #     api_year=self.config.edfi_api_year,
-        #     api_mode=self.config.edfi_api_mode,
-        #     instance_code=self.config.edfi_api_instance_code or None
-        # )
-        # print(edfi_client.get_info())
-        # session = edfi_client.get_conn()
-        # print(session)
-        # print(session.headers)
-        # self.edfi_client = edfi_client
-
         # filter down to only selected endpoints
         if selector!="*" and selector!="":
             if "," in selector:
@@ -276,18 +272,22 @@ class Lightbeam:
             else: selected_endpoints_with_data = [ selector ]
         else: selected_endpoints_with_data = endpoints_with_data
 
-        # do validation:
+        # load Descriptors and Resources swagger, do validation
         if self.config.validate:
-            # load resources swagger:
-            if "http://" in self.config.resources_swagger or "https://" in self.config.resources_swagger:
-                resources_swagger = json.loads(requests.get(self.config.resources_swagger).text)
-            else:
-                resources_swagger = json.load(open(self.config.resources_swagger))
-            # load descriptors swagger:
-            if "http://" in self.config.descriptors_swagger or "https://" in self.config.descriptors_swagger:
-                descriptors_swagger = json.loads(requests.get(self.config.descriptors_swagger).text)
-            else:
-                descriptors_swagger = json.load(open(self.config.descriptors_swagger))
+            try:
+                response = requests.get(self.config.edfi_api.open_api_metadata_url, verify=self.config.connection.verify_ssl).json()
+                descriptors_swagger = None
+                resources_swagger = None
+                for endpoint in response:
+                    if endpoint["name"]=="Descriptors":
+                        self.config.edfi_api.descriptors_swagger_url = endpoint["endpointUri"]
+                        descriptors_swagger = requests.get(endpoint["endpointUri"], verify=self.config.connection.verify_ssl).json()
+                    if endpoint["name"]=="Resources":
+                        self.config.edfi_api.resources_swagger_url = endpoint["endpointUri"]
+                        resources_swagger = requests.get(endpoint["endpointUri"], verify=self.config.connection.verify_ssl).json()
+            except Exception as e:
+                print("Unable to load resource/descriptor Swagger from API for validation... terminating. Please check your API base_url and version.")
+                exit(1)
             # validate each endpoint:
             for endpoint in selected_endpoints_with_data:
                 if "Descriptor" in endpoint:
@@ -385,8 +385,8 @@ class Lightbeam:
                 await self.gather_with_concurrency(self.config.connection.pool_size, *tasks) # execute them concurrently
                 self.save_hashlog(hashlog_file, self.hashlog)
     
-        if self.errors > 10:
-            raise Exception("more than 10 errors, terminating. Please review the errors, fix data errors or network conditions, and dispatch again.")
+        # if self.errors > 10:
+        #     raise Exception("more than 10 errors, terminating. Please review the errors, fix data errors or network conditions, and dispatch again.")
 
     async def update_every_second_until_done(self, counter):
         while self.num_finished + self.num_skipped < counter:

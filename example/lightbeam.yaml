@@ -1,14 +1,12 @@
 state_dir: ~/.lightbeam/
 data_dir: example/
 validate: True
-resources_swagger: https://api.ed-fi.org/v5.3/api/metadata/data/v3/resources/swagger.json
-descriptors_swagger: https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json
 edfi_api:
-  base_url: https://api.ed-fi.org/v5.3/api
-  # base_url: http://localhost/api
-  version: 3
-  mode: year_specific
-  year: 2021
+  # base_url: https://api.ed-fi.org/v5.3/api
+  base_url: https://localhost/api
+  version: 3 # or 2, although this isn't really supported
+  mode: sandbox # or year_specific
+  year: 2021 # for year_specific mode
   client_id: populated
   client_secret: populatedSecret
 connection:
