@@ -75,7 +75,7 @@ class Lightbeam:
     version = "0.0.1"
     config_defaults = {
         "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
-        "source_dir": "./",
+        "data_dir": "./",
         "validate": False,
         "edfi_api": {
             "base_url": "https://localhost/api",
@@ -128,6 +128,8 @@ class Lightbeam:
         if isinstance(user_config, dict):
             self.config = dotdict(self.merge_config(user_config, self.config_defaults))
         else: self.config = dotdict(self.config_defaults)
+        self.config.state_dir = os.path.expanduser(self.config.state_dir)
+        self.config.data_dir = os.path.expanduser(self.config.data_dir)
 
     def merge_config(self, user, default):
         if isinstance(user, dict) and isinstance(default, dict):

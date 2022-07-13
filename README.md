@@ -42,10 +42,8 @@ verbose: True
 state_dir: ~/.lighbeam/
 data_dir: ./
 validate: True
-resources_swagger: swagger/resources.json # local file or URL
-descriptors_swagger: swagger/descriptors.json # local file or URL
 edfi_api:
-  base_url: https://api.schooldistrict.org/v5.3/api/
+  base_url: https://api.schooldistrict.org/v5.3/api
   version: 3
   mode: year_specific
   year: 2021
@@ -64,7 +62,7 @@ show_stacktrace: True
 * (optional) Turn on `verbose` output. The default is `False`.
 * (optional) `state_dir` is where [state](#state) is stored. The default is `~/.lightbeam/` on *nix systems, `C:/Users/USER/.lightbeam/` on Windows systems.
 * (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location, as well as directory-based files like `{Resource}/*.jsonl` or `{Descriptor}/*.jsonl`.
-* (optional) Choose to `validate` your JSONL before transmitting it. If `validate` is `True`, then `resources_swagger` and `descriptors_swagger` are required paths to an Ed-Fi Swagger JSON file or a URL to Swagger JSON for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) online.
+* (optional) Choose to `validate` your JSONL before transmitting it. If `validate` is `True`, then the Swagger documents for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) will be fetched from your API and used to validate the structure of your JSON payloads.
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
   * The `version` as one of `3` or `2` (`2` is currently unsupported).
@@ -107,7 +105,7 @@ lightbeam --version
 This tool includes several special features:
 
 ## Validation
-Set `validate: True` and a `resources_swagger: file | URL` and `descriptors_swagger: file | URL` in your [YAML configuration](#setup) to validate each line of JSONL against an Ed-Fi API swagger specification. This won't, of course, find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
+Set `validate: True` in your [YAML configuration](#setup) to validate each line of JSONL against an Ed-Fi API's Swagger specifications for Descriptors and Resources. This won't, of course, find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
 
 
 ## Selectors
@@ -117,11 +115,12 @@ lightbeam path/to/config.yaml -s schools,students,studentSchoolAssociations
 ```
 
 ## Environment variable references
-In your [YAML configuration](#setup), you may reference environment variables with `${ENV_VAR}`. This can be useful for making references to source file locations dynamic, such as
+In your [YAML configuration](#setup), you may reference environment variables with `${ENV_VAR}`. This can be useful for passing sensitive data like credentials to `lightbeam`, such as
 ```yaml
 ...
-edfi_api_client_id: ${CLIENT_ID}
-edfi_api_client_secret: ${CLIENT_SECRET}
+edfi_api:
+  client_id: ${EDFI_API_CLIENT_ID}
+  client_secret: ${EDFI_API_CLIENT_SECRET}
 ...
 ```
 
@@ -166,7 +165,7 @@ lightbeam path/to/config.yaml --force
 Some details of the design of this tool are discussed below.
 
 ## Resource-dependency ordering
-JSONL files are sent to the Ed-Fi API in resource-dependency order, which avoids "missing reference" API errors.
+JSONL files are sent to the Ed-Fi API in resource-dependency order, which avoids "missing reference" API errors when populating multiple endpoints.
 
 
 # Performance & Limitations
