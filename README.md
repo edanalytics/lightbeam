@@ -147,7 +147,7 @@ Or you may choose to resend payloads last sent after *timestamp* using the `-n` 
 lightbeam path/to/config.yaml -n 2020-12-25T00:00:00
 lightbeam path/to/config.yaml --newer-than 2020-12-25T00:00:00
 ```
-Or you may choose to resend payloads that returned a certain HTTP status code(s) on the last send using the `-u` or `--retry-status-codes` command-line flag:
+Or you may choose to resend payloads that returned a certain HTTP status code(s) on the last send using the `-r` or `--retry-status-codes` command-line flag:
 ```bash
 lightbeam path/to/config.yaml -r 200,201
 lightbeam path/to/config.yaml --retry-status-codes 200,201
