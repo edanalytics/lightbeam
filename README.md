@@ -27,7 +27,7 @@ Guides and Resources -->
 
 # Installation
 ```
-pip install lightbeam
+pip install git+https://github.com/edanalytics/lightbeam.git#egg=lightbeam
 ```
 
 
