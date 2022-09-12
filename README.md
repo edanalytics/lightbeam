@@ -93,6 +93,8 @@ You may `validate` your JSONL before transmitting it. This checks that the paylo
 * contain valid descriptor values (fetched from your API)
 * contain unique values for any natural key
 
+This command will not find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
+
 
 ## `send`
 ```bash
@@ -133,10 +135,6 @@ lightbeam --version
 
 # Features
 This tool includes several special features:
-
-## Validation
-Set `validate: True` in your [YAML configuration](#setup) to validate each line of JSONL against an Ed-Fi API's Swagger specifications for Descriptors and Resources. This won't, of course, find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
-
 
 ## Selectors
 Send only a subset of resources or descriptors in your `data_dir` using a selector:
