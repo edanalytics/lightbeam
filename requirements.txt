@@ -6,4 +6,3 @@ asyncio
 aiohttp
 aiohttp_retry
 jsonschema
-git+https://github.com/edanalytics/edfi_api.git#egg=edfi_api

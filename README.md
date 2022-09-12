@@ -41,7 +41,6 @@ An example YAML configuration is below, followed by documentation of each option
 verbose: True
 state_dir: ~/.lighbeam/
 data_dir: ./
-validate: True
 edfi_api:
   base_url: https://api.schooldistrict.org/v5.3/api
   version: 3
@@ -56,13 +55,12 @@ connection:
   backoff_factor: 1.5
   retry_statuses: [429, 500, 502, 503, 504]
   verify_ssl: True
-verbose: True
+force_delete: True
 show_stacktrace: True
 ```
 * (optional) Turn on `verbose` output. The default is `False`.
 * (optional) `state_dir` is where [state](#state) is stored. The default is `~/.lightbeam/` on *nix systems, `C:/Users/USER/.lightbeam/` on Windows systems.
 * (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location, as well as directory-based files like `{Resource}/*.jsonl` or `{Descriptor}/*.jsonl`.
-* (optional) Choose to `validate` your JSONL before transmitting it. If `validate` is `True`, then the Swagger documents for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) will be fetched from your API and used to validate the structure of your JSON payloads.
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
   * The `version` as one of `3` or `2` (`2` is currently unsupported).
@@ -78,16 +76,45 @@ show_stacktrace: True
   * (optional) The `backoff_factor` to use for the exponential backoff. The default is `1.5`.
   * (optional) The `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry. The default is `[429, 500, 501, 503, 504]`.
   * (optional) Whether to `verify_ssl`. The default is `True`. Set to `False` when working with `localhost` APIs or to live dangerously.
-* (optional) Specify whether or not to show `verbose` output. The default is `False`.
+* (optional) Skip the interactive confirmation prompt (for programmatic use) when using the [`delete`](#delete) command. The default is `False` (prompt).
 * (optional) Specify whether to show a stacktrace for runtime errors. The default is `False`.
 
 
 # Usage
-Once you have the requierd [setup](#setup), send the JSONL payloads with
-```bash
-lightbeam path/to/config.yaml
-```
+`lightbeam` recognizes several commands:
 
+## `validate`
+```bash
+lightbeam validate path/to/config.yaml
+```
+You may `validate` your JSONL before transmitting it. This checks that the payloads
+* are valid JSON
+* conform to the structure described in the Swagger documents for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) fetched from your API
+* contain valid descriptor values (fetched from your API)
+* contain unique values for any natural key
+
+
+## `send`
+```bash
+lightbeam send path/to/config.yaml
+```
+Sends your JSONL payloads to your Ed-Fi API.
+
+## `validate+send`
+```bash
+lightbeam validate+send path/to/config.yaml
+```
+This is a shorthand for sequentially running [validate](#validate) and then [send](#send). It can be useful to catching errors in automated pipelines earlier in the `validate` step before you actually send problematic data to your Ed-Fi API.
+
+## `delete`
+```bash
+lightbeam delete path/to/config.yaml
+```
+Delete payloads you've previously sent (by ID). For example, for the `localEducationAgencies` endpoint, the `localEducationAgencyId` attribute is extracted from the payload, looked up in the Ed-Fi API (via a `GET` request), and then the corresponding `id` is deleted. (Payload hashes are also deleted from [saved state](#state).) Endpoints are processed in reverse-dependency order to prevent delete failures due to data dependencies.
+
+Running the `delete` command will prompt you to type "yes" to confirm. This confirmation prompt can be disabled (for programmatic use) by specifying `force_delete: True` in your YAML.
+
+## Other options
 See a help message with
 ```bash
 lightbeam -h
@@ -99,6 +126,7 @@ See the tool version with
 lightbeam -v
 lightbeam --version
 ```
+
 
 
 # Features
