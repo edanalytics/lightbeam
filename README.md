@@ -112,10 +112,10 @@ This is a shorthand for sequentially running [validate](#validate) and then [sen
 ```bash
 lightbeam delete path/to/config.yaml
 ```
-Delete payloads you've previously sent. This process
-1. determines the natural keys for each endpoint
-1. iterates through your payloads and look up each natural key via a `GET` request to the API
-1. if exactly one result is returned, it is then `DELETE`d by `id`
+Delete payloads by
+1. determing the natural key (set of required fields) for each endpoint
+1. iterating through your payloads and looking up each one via a `GET` request to the API filtering for the natural key values
+1. if exactly one result is returned, `DELETE`ing it by `id`
 
 Payload hashes are also deleted from [saved state](#state). Endpoints are processed in reverse-dependency order to prevent delete failures due to data dependencies.
 
