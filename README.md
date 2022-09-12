@@ -112,6 +112,8 @@ lightbeam delete path/to/config.yaml
 ```
 Delete payloads you've previously sent (by ID). For example, for the `localEducationAgencies` endpoint, the `localEducationAgencyId` attribute is extracted from the payload, looked up in the Ed-Fi API (via a `GET` request), and then the corresponding `id` is deleted. (Payload hashes are also deleted from [saved state](#state).) Endpoints are processed in reverse-dependency order to prevent delete failures due to data dependencies.
 
+Note that `student` resource payloads *cannot be deleted* since other resources may reference them. (This is an Ed-Fi API restriction.)
+
 Running the `delete` command will prompt you to type "yes" to confirm. This confirmation prompt can be disabled (for programmatic use) by specifying `force_delete: True` in your YAML.
 
 ## Other options
