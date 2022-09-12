@@ -21,7 +21,6 @@ from datetime import datetime
 from yaml.loader import SafeLoader
 from jsonschema import RefResolver
 from jsonschema import Draft4Validator
-# from edfi_api_client import EdFiBase
 
 
 # This allows us to determine the YAML file line number for any element loaded from YAML
@@ -54,7 +53,6 @@ class Lightbeam:
     config_defaults = {
         "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
         "data_dir": "./",
-        "validate": False,
         "edfi_api": {
             "base_url": "https://localhost/api",
             "version": 3,
@@ -75,6 +73,7 @@ class Lightbeam:
     }
     SWAGGER_CACHE_TTL = 2629800 # one month in seconds
     DESCRIPTORS_CACHE_TTL = 2629800 # one month in seconds
+    TASK_QUEUE_SIZE = 1000
     NUM_VALIDATION_ERRORS_TO_DISPLAY = 10
     NUM_VALIDATION_REASONS_TO_DISPLAY = 10
     
@@ -92,8 +91,8 @@ class Lightbeam:
         self.newer_than=newer_than
         self.resend_status_codes=resend_status_codes
         self.endpoints = []
-        self.batch_size = 1000
 
+        # load params and/or env vars for config YAML interpolation
         parameters = {}
         if params!="": parameters = json.loads(params)
         global env_copy
@@ -117,14 +116,17 @@ class Lightbeam:
         self.config["state_dir"] = os.path.expanduser(self.config["state_dir"])
         self.config["data_dir"] = os.path.expanduser(self.config["data_dir"])
 
-        # Configure log level
+        # configure log level
         self.logger.setLevel(logging.getLevelName(self.config["log_level"].upper()))
 
         # check data_dir exists
         if not os.path.isdir(self.config["data_dir"]):
             self.logger.critical("`data_dir` {0} is not a directory".format(self.config["data_dir"]))
         
-        logging.captureWarnings(True) # turn off annoying SSL warnings (is this DANGEROUSSSS??)
+        # turn off annoying SSL warnings (is this necessary? is this dangerous?)
+        logging.captureWarnings(True)
+
+        # fetch/set up Ed-Fi API URLs
         try:
             self.logger.debug("fetching base_url...")
             api_base = requests.get(self.config["edfi_api"]["base_url"],
@@ -141,7 +143,7 @@ class Lightbeam:
         self.config["edfi_api"]["data_url"] = self.get_data_url() + '/ed-fi/'
         self.config["edfi_api"]["open_api_metadata_url"] = api_base["urls"]["openApiMetadata"]
 
-        # load all endpoints
+        # load all endpoints in dependency-order
         all_endpoints = self.get_sorted_endpoints()
 
         # filter down to only selected endpoints
@@ -172,7 +174,7 @@ class Lightbeam:
             self.logger.debug("creating state dir {0}".format(self.config["state_dir"]))
             os.mkdir(self.config["state_dir"])
 
-        # load Descriptors and Resources swagger
+        # load Descriptors and Resources swagger URLs
         try:
             self.logger.debug("fetching swagger docs...")
             response = requests.get(self.config["edfi_api"]["open_api_metadata_url"],
@@ -180,6 +182,7 @@ class Lightbeam:
         except Exception as e:
             self.logger.critical("Unable to load Swagger docs from API... terminating. Check API connectivity.")
 
+        # load (or re-use cached) Descriptors and Resources swagger
         self.descriptors_swagger = None
         self.resources_swagger = None
         cache_dir = os.path.join(self.config["state_dir"], "cache")
@@ -187,7 +190,6 @@ class Lightbeam:
             self.logger.debug("creating cache dir {0}".format(cache_dir))
             os.mkdir(cache_dir)
         for endpoint in response:
-            # for Resources and Descriptors, we cache the swagger locally for up to SWAGGER_CACHE_TTL seconds
             endpoint_type = endpoint["name"].lower()
             if endpoint_type=="descriptors" or endpoint_type=="resources":
                 swagger_url = endpoint["endpointUri"]
@@ -420,8 +422,6 @@ class Lightbeam:
     # Tells you if a specified descriptor value is valid or not
     def is_valid_descriptor_value(self, namespace, codeValue):
         for row in self.descriptor_values:
-            # if row[0]=="otherNameTypeDescriptor":
-            #     print(row[1], namespace, "; ", row[0], descriptor, "; ", row[2], codeValue)
             if row[1]==namespace and row[2]==codeValue:
                 return True
         return False
@@ -500,10 +500,9 @@ class Lightbeam:
                     self.logger.warning(f"... VALIDATION ERRORS on {num_errors} of {counter} lines in {file}; see details above.")
                     exit(1)
     
-    # Validates descriptor values for a single payload
+    # Validates descriptor values for a single payload (returns an error message or empty string)
     def invalid_descriptor_values(self, payload, path=""):
         for k in payload.keys():
-            #print("checking "+k+"; "+str(payload[k])+"; "+str(type(payload[k]))+" "+ (".".join(path or [])))
             if isinstance(payload[k], dict):
                 value = self.invalid_descriptor_values(payload[k], path+("." if path!="" else "")+k)
                 if value!="": return value
@@ -512,7 +511,6 @@ class Lightbeam:
                     value = self.invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], str) and "Descriptor" in k:
-                #descriptor = k
                 namespace = payload[k].split("#")[0]
                 codeValue = payload[k].split("#")[1]
                 if not self.is_valid_descriptor_value(namespace, codeValue):
@@ -585,7 +583,7 @@ class Lightbeam:
                             tasks.append(asyncio.ensure_future(
                                 self.do_post(endpoint, file_name, data, client, total_counter, hash)))
                     
-                        if total_counter%self.batch_size==0:
+                        if total_counter%self.TASK_QUEUE_SIZE==0:
                             await self.do_tasks(tasks, total_counter)
                             tasks = []
                         
@@ -615,7 +613,6 @@ class Lightbeam:
                     message = str(response.status) + ": " + self.linearize(body)
                     if message not in self.status_reasons: self.status_reasons[message] = 1
                     else: self.status_reasons[message] += 1
-                    #self.logger.warn("  ERROR with line {0} of {1}; ENDPOINT: {2}{3}; STATUS: {4}; RESPONSE: {5}".format(line, file_name, self.config["edfi_api"]["data_url"], endpoint, status, body))
                     self.errors += 1
                 
                 # update hashlog
@@ -712,7 +709,7 @@ class Lightbeam:
                         tasks.append(asyncio.ensure_future(
                             self.do_delete(endpoint, file_name, params, client, counter)))
 
-                        if counter%self.batch_size==0:
+                        if counter%self.TASK_QUEUE_SIZE==0:
                             await self.do_tasks(tasks, counter)
                             tasks = []
                         
@@ -753,7 +750,6 @@ class Lightbeam:
                                 message = str(response.status) + ": " + self.linearize(body)
                                 if message not in self.status_reasons: self.status_reasons[message] = 1
                                 else: self.status_reasons[message] += 1
-                                # self.logger.debug("  ERROR deleting line {0} of {1}; ENDPOINT: {2}{3}/{4}; STATUS: {5}; RESPONSE: {6}".format(line, file_name, self.config["edfi_api"]["data_url"], endpoint, the_id, status, body))
                                 self.errors += 1
                     elif type(j)==list and len(j)==0:
                         self.num_skipped += 1
@@ -768,8 +764,6 @@ class Lightbeam:
                     self.num_skipped += 1
                     skip_reason = f"searching API for payload returned a {status} response"
                 if skip_reason != "":
-                    #if skip_reason not in self.status_reasons: self.status_reasons[skip_reason] = 1
-                    #else: self.status_reasons[skip_reason] += 1
                     if skip_reason not in self.status_reasons: self.status_reasons[skip_reason] = 1
                     else: self.status_reasons[skip_reason] += 1
                     
@@ -815,6 +809,7 @@ class Lightbeam:
             params[k] = value
         return params
 
+    # Loads (unpickles) a hashlog file
     def load_hashlog(self, hashlog_file):
         hashlog = {}
         if os.path.isfile(hashlog_file):
@@ -822,6 +817,7 @@ class Lightbeam:
                 hashlog = pickle.load(f)
         return hashlog
 
+    # Saves (pickles) a hashlog file
     def save_hashlog(self, hashlog_file, hashlog):
         if not os.path.isdir(self.config["state_dir"]):
             os.mkdir(self.config["state_dir"])
