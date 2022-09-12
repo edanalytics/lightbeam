@@ -112,7 +112,12 @@ This is a shorthand for sequentially running [validate](#validate) and then [sen
 ```bash
 lightbeam delete path/to/config.yaml
 ```
-Delete payloads you've previously sent (by ID). For example, for the `localEducationAgencies` endpoint, the `localEducationAgencyId` attribute is extracted from the payload, looked up in the Ed-Fi API (via a `GET` request), and then the corresponding `id` is deleted. (Payload hashes are also deleted from [saved state](#state).) Endpoints are processed in reverse-dependency order to prevent delete failures due to data dependencies.
+Delete payloads you've previously sent. This process
+1. determines the natural keys for each endpoint
+1. iterates through your payloads and look up each natural key via a `GET` request to the API
+1. if exactly one result is returned, it is then `DELETE`d by `id`
+
+Payload hashes are also deleted from [saved state](#state). Endpoints are processed in reverse-dependency order to prevent delete failures due to data dependencies.
 
 Note that `student` resource payloads *cannot be deleted* since other resources may reference them. (This is an Ed-Fi API restriction.)
 
