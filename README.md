@@ -104,7 +104,7 @@ Sends your JSONL payloads to your Ed-Fi API.
 ```bash
 lightbeam validate+send path/to/config.yaml
 ```
-This is a shorthand for sequentially running [validate](#validate) and then [send](#send). It can be useful to catching errors in automated pipelines earlier in the `validate` step before you actually send problematic data to your Ed-Fi API.
+This is a shorthand for sequentially running [validate](#validate) and then [send](#send). It can be useful to catching errors in automated pipelines earlier in the `validate` step before you actually `send` problematic data to your Ed-Fi API.
 
 ## `delete`
 ```bash
