@@ -533,7 +533,7 @@ class Lightbeam:
                 for k,v in self.status_reasons.items():
                     counter += 1
                     if counter>self.NUM_VALIDATION_REASONS_TO_DISPLAY: break
-                    self.logger.info("  (reason: [{0} instances] {1})".format(k, str(v)))
+                    self.logger.info("  (reason: [{0}]; instances: {1})".format(k, str(v)))
                 if len(self.status_reasons.keys())>self.NUM_VALIDATION_REASONS_TO_DISPLAY:
                     self.logger.info("  (... and {0} others)".format(str(len(self.status_reasons.keys())-self.NUM_VALIDATION_REASONS_TO_DISPLAY)))
 
@@ -676,7 +676,7 @@ class Lightbeam:
                 for k,v in self.status_reasons.items():
                     counter += 1
                     if counter>self.NUM_VALIDATION_REASONS_TO_DISPLAY: break
-                    self.logger.info("  (reason: [{0} instances] {1})".format(k, str(v)))
+                    self.logger.info("  (reason: [{0}]; instances: {1})".format(k, str(v)))
                 if len(self.status_reasons.keys())>self.NUM_VALIDATION_REASONS_TO_DISPLAY:
                     self.logger.info("  (... and {0} others)".format(str(len(self.status_reasons.keys())-self.NUM_VALIDATION_REASONS_TO_DISPLAY)))
 
