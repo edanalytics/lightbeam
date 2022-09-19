@@ -52,7 +52,7 @@ class Deleter:
         
         self.lightbeam.reset_counters()
         # here we set up a smart retry client with exponential backoff and a connection pool
-        async with util.get_retry_client(self.lightbeam.config['connection'], self.lightbeam.api.token) as client:
+        async with self.lightbeam.api.get_retry_client() as client:
             data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
             tasks = []
 
@@ -71,14 +71,25 @@ class Deleter:
                         # (so we can search for matching records in the API)
                         params = util.interpolate_params(params_structure, data)
 
+                        # check if we've posted this data before
                         hash = hashlog.get_hash(data)
                         if hash in self.hashlog_data.keys():
-                            # remove the payload from the hashlog
-                            del self.hashlog_data[hash]
-                        
-                        # append a delete task to the queue
-                        tasks.append(asyncio.ensure_future(
-                            self.do_delete(endpoint, file_name, params, client, counter)))
+                            # check if the last post meets criteria for a delete
+                            if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
+                                # yes, we need to delete it; append to task queue
+                                tasks.append(asyncio.ensure_future(
+                                    self.do_delete(endpoint, file_name, params, client, counter)))
+                                
+                                # remove the payload from the hashlog
+                                del self.hashlog_data[hash]
+                            else:
+                                # no, do not delete
+                                self.lightbeam.num_skipped += 1
+                                continue
+                        else:
+                            # new, never-before-seen payload! delete it (maybe this should be a warning instead?)
+                            tasks.append(asyncio.ensure_future(
+                                self.do_delete(endpoint, file_name, params, client, counter)))
 
                         if counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
                             await self.lightbeam.do_tasks(tasks, counter)
@@ -92,11 +103,16 @@ class Deleter:
     # Deletes a single payload for a single endpoint
     async def do_delete(self, endpoint, file_name, params, client, line):
         try:
+            # wait if another process has locked lightbeam while we refresh the oauth token:
+            while self.lightbeam.is_locked:
+                await asyncio.sleep(1)
+            
             # we have to get the `id` for a particular resource by first searching for its natural keys
             async with client.get(self.lightbeam.api.config["data_url"] + endpoint, params=params,
                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                 body = await response.text()
                 status = str(response.status)
+                if response.status=='400': self.lightbeam.api.update_oauth(client)
                 skip_reason = ""
                 if status in ['200', '201']:
                     j = json.loads(body)
@@ -107,6 +123,7 @@ class Deleter:
                                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                             body = await response.text()
                             status = str(response.status)
+                            if response.status=='400': self.lightbeam.api.update_oauth(client)
                             self.lightbeam.num_finished += 1
                             self.lightbeam.increment_status_counts(status)
                             if response.status not in [ 204 ]:

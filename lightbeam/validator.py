@@ -20,6 +20,8 @@ class Validator:
         self.lightbeam.api.load_swagger_docs()
         asyncio.run(self.lightbeam.api.load_descriptors_values())
 
+        self.lightbeam.reset_counters()
+
         for endpoint in self.lightbeam.endpoints:
             if "Descriptor" in endpoint:
                 self.validate_endpoint(self.lightbeam.api.descriptors_swagger, endpoint)
@@ -28,7 +30,7 @@ class Validator:
 
     # Validates a single endpoint based on the Swagger docs
     def validate_endpoint(self, swagger, endpoint):
-        definition = "edFi_" + util.singularize_endpoint(endpoint)
+        definition = util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
         resource_schema = swagger["definitions"][definition]
 
         resolver = RefResolver("test", swagger, swagger)
@@ -41,54 +43,54 @@ class Validator:
             self.logger.info(f"validating {file} against {definition} schema...")
             with open(file) as f:
                 counter = 0
-                num_errors = 0
+                self.lightbeam.num_errors = 0
                 for line in f:
                     counter += 1
                     # check payload is valid JSON
                     try:
                         instance = json.loads(line)
                     except Exception as e:
-                        if num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                        if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                             self.logger.warning(f"... VALIDATION ERROR (line {counter}): invalid JSON" + str(e).replace(" line 1",""))
-                        num_errors += 1
+                        self.lightbeam.num_errors += 1
                         continue
 
                     # check payload obeys Swagger schema
                     try:
                         validator.validate(instance)
                     except Exception as e:
-                        if num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                        if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                             e_path = [str(x) for x in list(e.path)]
                             context = ""
                             if len(e_path)>0: context = " in " + " -> ".join(e_path)
                             self.logger.warning(f"... VALIDATION ERROR (line {counter}): " + str(e.message) + context)
-                        num_errors += 1
+                        self.lightbeam.num_errors += 1
                         continue
 
                     # check descriptor values are valid
                     error_message = self.has_invalid_descriptor_values(instance)
                     if error_message != "":
-                        if num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                        if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                             self.logger.warning(f"... VALIDATION ERROR (line {counter}): " + error_message)
-                        num_errors += 1
+                        self.lightbeam.num_errors += 1
                         continue
 
                     # check natural keys are unique
                     params = json.dumps(util.interpolate_params(params_structure, line))
                     hash = hashlog.get_hash(params)
                     if hash in distinct_params:
-                        if num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                        if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                             self.logger.warning(f"... VALIDATION ERROR (line {counter}): duplicate value(s) for natural key(s): {params}")
-                        num_errors += 1
+                        self.lightbeam.num_errors += 1
                         continue
                     else: distinct_params.append(hash)
                 
-                if num_errors==0: self.logger.info(f"... all lines validate ok!")
+                if self.lightbeam.num_errors==0: self.logger.info(f"... all lines validate ok!")
                 else:
-                    num_others = num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY
-                    if num_errors > self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                    num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY
+                    if self.lightbeam.num_errors > self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                         self.logger.critical(f"... and {num_others} others!")
-                    self.logger.critical(f"... VALIDATION ERRORS on {num_errors} of {counter} lines in {file}; see details above.")
+                    self.logger.critical(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {counter} lines in {file}; see details above.")
     
     # Validates descriptor values for a single payload (returns an error message or empty string)
     def has_invalid_descriptor_values(self, payload, path=""):

@@ -40,7 +40,7 @@ class Sender:
         
         self.lightbeam.reset_counters()
         # here we set up a smart retry client with exponential backoff and a connection pool
-        async with util.get_retry_client(self.lightbeam.config['connection'], self.lightbeam.api.token) as client:
+        async with self.lightbeam.api.get_retry_client() as client:
             # process each file
             data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
             tasks = []
@@ -56,11 +56,7 @@ class Sender:
                         # check if we've posted this data before
                         if hash in self.hashlog_data.keys():
                             # check if the last post meets criteria for a resend
-                            if ( self.lightbeam.force
-                                or (self.lightbeam.older_than!='' and self.hashlog_data[hash][0]<self.lightbeam.older_than)
-                                or (self.lightbeam.newer_than!="" and self.hashlog_data[hash][0]>self.lightbeam.newer_than)
-                                or (len(self.lightbeam.resend_status_codes)>0 and self.hashlog_data[hash][1] in self.lightbeam.resend_status_codes)
-                            ):
+                            if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
                                 # yes, we need to (re)post it; append to task queue
                                 tasks.append(asyncio.ensure_future(
                                     self.do_post(endpoint, file_name, data, client, total_counter, hash)))
@@ -89,10 +85,15 @@ class Sender:
     # Posts a single data payload to a single endpoint using the client
     async def do_post(self, endpoint, file_name, data, client, line, hash):
         try:
+            # wait if another process has locked lightbeam while we refresh the oauth token:
+            while self.lightbeam.is_locked:
+                await asyncio.sleep(1)
+            
             async with client.post(self.lightbeam.api.config["data_url"] + endpoint, data=data,
                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                 body = await response.text()
                 status = str(response.status)
+                if response.status=='400': self.lightbeam.api.update_oauth(client)
                 self.lightbeam.num_finished += 1
 
                 # update status_counts (for every-second status update)

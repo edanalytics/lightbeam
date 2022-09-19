@@ -19,6 +19,7 @@ class Lightbeam:
     config_defaults = {
         "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
         "data_dir": "./",
+        "namespace": "ed-fi",
         "edfi_api": {
             "base_url": "https://localhost/api",
             "version": 3,
@@ -57,6 +58,7 @@ class Lightbeam:
         self.sender = Sender(self)
         self.deleter = Deleter(self)
         self.api = EdFiAPI(self)
+        self.is_locked = False
 
         # load params and/or env vars for config YAML interpolation
         self.params = json.loads(params) if params else {}
@@ -111,6 +113,13 @@ class Lightbeam:
         os.environ = _env_backup
 
         return configs
+    
+    def meets_process_criteria(self, tuple):
+        return ( self.force
+                    or (self.older_than!='' and tuple[0]<self.older_than)
+                    or (self.newer_than!="" and tuple[0]>self.newer_than)
+                    or (len(self.resend_status_codes)>0 and tuple[1] in self.resend_status_codes)
+                )
 
 
     ################### Data discovery and loading methods ####################
@@ -139,12 +148,13 @@ class Lightbeam:
         return endpoints_with_data
     
     # Returns a generator which produces json lines for a given endpoint based on relevant files in config.data_dir
-    def get_jsonl_for_endpoint(self, endpoint):
-        file_list = self.get_data_files_for_endpoint(endpoint)
-        for f in file_list:
-            with open(f) as fd:
-                for line in fd:
-                    yield line.strip()
+    # def get_jsonl_for_endpoint(self, endpoint):
+    #     file_list = self.get_data_files_for_endpoint(endpoint)
+    #     for f in file_list:
+    #         with open(f) as fd:
+    #             for line in fd:
+    #                 yield line.strip()
+    # (not used, because processes want to be able to report which file and line number errors happen at...)
                 
 
     ###################### Async task-processing methods ######################
