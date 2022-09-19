@@ -93,7 +93,7 @@ class Sender:
                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                 body = await response.text()
                 status = str(response.status)
-                if response.status=='400': self.lightbeam.api.update_oauth(client)
+                if status=='400': self.lightbeam.api.update_oauth(client)
                 self.lightbeam.num_finished += 1
 
                 # update status_counts (for every-second status update)

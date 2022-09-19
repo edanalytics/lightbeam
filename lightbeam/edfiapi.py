@@ -94,13 +94,11 @@ class EdFiAPI:
                     ),
                 verify=self.lightbeam.config["connection"]["verify_ssl"])
             self.token = token_response.json()["access_token"]
-
-            # these headers are sent with every subsequent API POST request:
-            self.token = self.token
         except Exception as e:
             self.logger.error(f"OAuth token could not be obtained; check your API credentials?")
 
     def update_oauth(self, client):
+        self.logger.debug("fetching new OAuth token due to a 400 response...")
         self.lightbeam.is_locked = True
         self.do_oauth()
         client.headers = {

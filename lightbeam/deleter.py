@@ -105,6 +105,7 @@ class Deleter:
         try:
             # wait if another process has locked lightbeam while we refresh the oauth token:
             while self.lightbeam.is_locked:
+                print('waiting for lock...')
                 await asyncio.sleep(1)
             
             # we have to get the `id` for a particular resource by first searching for its natural keys
@@ -112,7 +113,7 @@ class Deleter:
                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                 body = await response.text()
                 status = str(response.status)
-                if response.status=='400': self.lightbeam.api.update_oauth(client)
+                if status=='400': self.lightbeam.api.update_oauth(client)
                 skip_reason = ""
                 if status in ['200', '201']:
                     j = json.loads(body)
@@ -123,7 +124,7 @@ class Deleter:
                                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                             body = await response.text()
                             status = str(response.status)
-                            if response.status=='400': self.lightbeam.api.update_oauth(client)
+                            if status=='400': self.lightbeam.api.update_oauth(client)
                             self.lightbeam.num_finished += 1
                             self.lightbeam.increment_status_counts(status)
                             if response.status not in [ 204 ]:
