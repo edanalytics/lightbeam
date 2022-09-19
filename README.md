@@ -38,7 +38,6 @@ Running the tool requires
 An example YAML configuration is below, followed by documentation of each option.
 
 ```yaml
-verbose: True
 state_dir: ~/.lighbeam/
 data_dir: ./
 edfi_api:
@@ -56,11 +55,11 @@ connection:
   retry_statuses: [429, 500, 502, 503, 504]
   verify_ssl: True
 force_delete: True
+log_level: INFO
 show_stacktrace: True
 ```
-* (optional) Turn on `verbose` output. The default is `False`.
 * (optional) `state_dir` is where [state](#state) is stored. The default is `~/.lightbeam/` on *nix systems, `C:/Users/USER/.lightbeam/` on Windows systems.
-* (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location, as well as directory-based files like `{Resource}/*.jsonl` or `{Descriptor}/*.jsonl`.
+* (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location, as well as directory-based files like `{Resource}/*.jsonl` or `{Descriptor}/*.jsonl`. Files with `.ndjson` or simply `.json` extensions will also be processed. (More info at the [`ndjson` standard page](http://dataprotocols.org/ndjson/).)
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
   * The `version` as one of `3` or `2` (`2` is currently unsupported).
@@ -77,7 +76,13 @@ show_stacktrace: True
   * (optional) The `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry. The default is `[429, 500, 501, 503, 504]`.
   * (optional) Whether to `verify_ssl`. The default is `True`. Set to `False` when working with `localhost` APIs or to live dangerously.
 * (optional) Skip the interactive confirmation prompt (for programmatic use) when using the [`delete`](#delete) command. The default is `False` (prompt).
+* (optional) Specify a `log_level` for output. Possible values are
+  - `ERROR`: only output errors like missing required sources, invalid references, invalid [YAML configuration](#yaml-configuration), etc.
+  - `WARNING`: output errors and warnings like when the run log is getting long
+  - `INFO`: all errors and warnings plus basic information about what `earthmover` is doing: start and stop, how many rows were removed by a `distinct_rows` or `filter_rows` operation, etc. (This is the default `log_level`.)
+  - `DEBUG`: all output above, plus verbose details about each transformation step, timing, memory usage, and more. (This `log_level` is recommended for [debugging](#debugging-practices) transformations.)
 * (optional) Specify whether to show a stacktrace for runtime errors. The default is `False`.
+
 
 
 # Usage

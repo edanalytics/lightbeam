@@ -1,10 +1,8 @@
 import os
 import sys
-import filecmp
 import logging
 import argparse
-import traceback
-from lightbeam import Lightbeam
+from lightbeam.lightbeam import Lightbeam
 
 
 class ExitOnExceptionHandler(logging.StreamHandler):
@@ -79,31 +77,37 @@ def main(argv=None):
     parser.set_defaults(**defaults)
     args, remaining_argv = parser.parse_known_args()
     
-    if args.version: exit("lightbeam, version {0}".format(Lightbeam.version))
+    if args.version:
+        lb_dir = os.path.dirname(os.path.abspath(__file__))
+        version_file = os.path.join(lb_dir, '..', 'VERSION.txt')
+        with open(version_file, 'r') as f:
+            VERSION = f.read().strip()
+            print(f"lightbeam, version {VERSION}")
+        exit(0)
 
     if args.command not in ['validate', 'send', 'validate+send', 'delete']:
         logger.error("Please specify a command to run: `validate`, `send`, `validate+send`, or `delete`. (Try the -h flag for help.)")
 
     if not args.config_file:
         logger.error("Please pass a config YAML file as a command line argument. (Try the -h flag for help.)")
+    lb = Lightbeam(
+        config_file=args.config_file,
+        logger=logger,
+        selector=args.selector,
+        params=args.params,
+        force=args.force,
+        older_than=args.older_than,
+        newer_than=args.newer_than,
+        resend_status_codes=args.resend_status_codes
+        )
     try:
         logger.info("starting...")
-        lb = Lightbeam(
-            config_file=args.config_file,
-            logger=logger,
-            selector=args.selector,
-            params=args.params,
-            force=args.force,
-            older_than=args.older_than,
-            newer_than=args.newer_than,
-            resend_status_codes=args.resend_status_codes
-            )
-        if args.command=='validate': lb.validate()
-        elif args.command=='send': lb.send()
+        if args.command=='validate': lb.validator.validate()
+        elif args.command=='send': lb.sender.send()
         elif args.command=='validate+send':
-            lb.validate()
-            lb.send()
-        elif args.command=='delete': lb.delete()
+            lb.validator.validate()
+            lb.sender.send()
+        elif args.command=='delete': lb.deleter.delete()
         lb.logger.info("done!")
     except Exception as e:
         logger.exception(e, exc_info=lb.config["show_stacktrace"])

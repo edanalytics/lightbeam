@@ -9,6 +9,9 @@ HERE = pathlib.Path(__file__).parent
 # The text of the README file
 README = (HERE / "README.md").read_text()
 
+# The current version
+VERSION = (HERE / "VERSION.txt").read_text()
+
 # automatically captured required modules for install_requires in requirements.txt
 with open(path.join(HERE, 'requirements.txt'), encoding='utf-8') as f:
     all_reqs = f.read().split('\n')
@@ -21,7 +24,7 @@ dependency_links = [x.strip().replace('git+', '') for x in all_reqs \
 setup (
     name = 'lightbeam',
     description = 'Sends JSONL data into an Ed-Fi API',
-    version = '0.0.1',
+    version = VERSION,
     packages = find_packages(), # list of all packages
     # package_data={'lightbeam': ['resources/*.txt']},
     install_requires = install_requires,
