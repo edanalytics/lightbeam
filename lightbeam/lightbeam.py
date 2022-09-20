@@ -54,7 +54,6 @@ class Lightbeam:
         self.newer_than=newer_than
         self.resend_status_codes=resend_status_codes
         self.endpoints = []
-        self.prev_line_length = 0
         self.validator = Validator(self)
         self.sender = Sender(self)
         self.deleter = Deleter(self)
