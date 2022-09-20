@@ -22,7 +22,7 @@ class Sender:
         for endpoint in self.lightbeam.endpoints:
             self.logger.info("sending endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_send(endpoint))
-            self.logger.info("finished sending data for endpoint {0}!".format(endpoint))
+            self.logger.info("finished processing endpoint {0}!".format(endpoint))
             self.logger.info("  (status counts: {0}) ".format(str(self.lightbeam.status_counts)))
             self.lightbeam.log_status_reasons()
 

@@ -23,10 +23,9 @@ class Validator:
         self.lightbeam.reset_counters()
 
         for endpoint in self.lightbeam.endpoints:
-            if "Descriptor" in endpoint:
-                self.validate_endpoint(self.lightbeam.api.descriptors_swagger, endpoint)
-            else:
-                self.validate_endpoint(self.lightbeam.api.resources_swagger, endpoint)
+            if "Descriptor" in endpoint: swagger = self.lightbeam.api.descriptors_swagger
+            else: swagger = self.lightbeam.api.resources_swagger
+            self.validate_endpoint(swagger, endpoint)
 
     # Validates a single endpoint based on the Swagger docs
     def validate_endpoint(self, swagger, endpoint):
