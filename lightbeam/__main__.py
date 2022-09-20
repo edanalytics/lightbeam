@@ -47,7 +47,7 @@ def main(argv=None):
         )
     parser.add_argument("-s", "--selector",
         nargs='?',
-        help='sepecify a subset of resources to send'
+        help='sepecify a subset of resources to process'
         )
     parser.add_argument("-p", "--params",
         type=str,
@@ -55,7 +55,7 @@ def main(argv=None):
         )
     parser.add_argument("-c", "--clear",
         action='store_true',
-        help='clear cached Swagger and descriptor values'
+        help='clear cached Swagger docs and descriptor values'
         )
     parser.add_argument("-f", "--force",
         action='store_true',
@@ -63,15 +63,15 @@ def main(argv=None):
         )
     parser.add_argument("-o", "--older-than",
         type=str,
-        help='only payloads last sent before this timestamp will be resent'
+        help='only payloads last sent before this timestamp will be processed'
         )
     parser.add_argument("-n", "--newer-than",
         type=str,
-        help='only payloads last sent after this timestamp will be resent'
+        help='only payloads last sent after this timestamp will be processed'
         )
     parser.add_argument("-r", "--resend-status-codes",
         type=str,
-        help='only payloads that returned one of these comma-delimited HTTP status codes on last send will be resent'
+        help='only payloads that returned one of these comma-delimited HTTP status codes on last send will be processed'
         )
     defaults = { "selector":"*", "params": "", "older_than": "", "newer_than": "", "resend_status_codes": "" }
     parser.set_defaults(**defaults)
