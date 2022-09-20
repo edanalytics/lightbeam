@@ -35,15 +35,15 @@ def main(argv=None):
         type=str,
         help='the command to run: `validate`, `send`, `validate+send`, or `delete`'
         )
+    parser.add_argument("-v", "--version",
+        action='store_true',
+        help='view tool version'
+        )
     parser.add_argument('config_file',
         nargs="?",
         type=str,
         help='Specify YAML config file',
-        metavar="FILE"
-        )
-    parser.add_argument("-v", "--version",
-        action='store_true',
-        help='view tool version'
+        metavar="CONFIG_FILE"
         )
     parser.add_argument("-s", "--selector",
         nargs='?',
@@ -53,9 +53,13 @@ def main(argv=None):
         type=str,
         help='specify parameters as a JSON object via CLI (overrides environment variables)'
         )
+    parser.add_argument("-c", "--clear",
+        action='store_true',
+        help='clear cached Swagger and descriptor values'
+        )
     parser.add_argument("-f", "--force",
         action='store_true',
-        help='resend all payloads, regardless of history'
+        help='process all payloads, ignoring history'
         )
     parser.add_argument("-o", "--older-than",
         type=str,
@@ -95,6 +99,7 @@ def main(argv=None):
         logger=logger,
         selector=args.selector,
         params=args.params,
+        clear=args.clear,
         force=args.force,
         older_than=args.older_than,
         newer_than=args.newer_than,

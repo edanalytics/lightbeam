@@ -131,14 +131,10 @@ class Deleter:
                                 message = str(response.status) + ": " + util.linearize(body)
                                 self.lightbeam.increment_status_reason(message)
                                 self.lightbeam.num_errors += 1
-                    elif type(j)==list and len(j)==0:
-                        skip_reason = "payload not found in API"
-                    elif type(j)==list and len(j)>1:
-                        skip_reason = "multiple matching payloads found in API"
-                    else:
-                        skip_reason = "searching API for payload returned a response that is not a list"
-                else:
-                    skip_reason = f"searching API for payload returned a {status} response"
+                    elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
+                    elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
+                    else: skip_reason = "searching API for payload returned a response that is not a list"
+                else: skip_reason = f"searching API for payload returned a {status} response"
                 if skip_reason != "":
                     self.lightbeam.num_skipped += 1
                     self.lightbeam.increment_status_reason(skip_reason)

@@ -200,6 +200,13 @@ lightbeam path/to/config.yaml -f
 lightbeam path/to/config.yaml --force
 ```
 
+## Cache
+To reduce runtime, `lightbeam` caches the resource and descriptor Swagger docs it fetches from your Ed-Fi API as well as the descriptor values for up to a month. This way, the data does not have to be re-loaded from your API on every run. The cached files are stored in the `cache` directory within your `state_dir`. You may run `lightbeam` with the `-c` or `--clear` flag to clear the cache and force re-fetching the API metadata:
+```bash
+lightbeam path/to/config.yaml -c
+lightbeam path/to/config.yaml --clear
+```
+
 
 # Design
 Some details of the design of this tool are discussed below.

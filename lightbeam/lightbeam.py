@@ -43,12 +43,13 @@ class Lightbeam:
     MAX_STATUS_REASONS_TO_DISPLAY = 10
     DATA_FILE_EXTENSIONS = ['json', 'jsonl', 'ndjson']
     
-    def __init__(self, config_file, logger=None, selector="*", params="", force=False, older_than="", newer_than="", resend_status_codes=""):
+    def __init__(self, config_file, logger=None, selector="*", params="", clear=False, force=False, older_than="", newer_than="", resend_status_codes=""):
         self.config_file = config_file
         self.logger = logger
         self.errors = 0
         self.params = params
         self.force = force
+        self.clear = clear
         self.older_than=older_than
         self.newer_than=newer_than
         self.resend_status_codes=resend_status_codes

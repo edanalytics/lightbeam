@@ -169,7 +169,7 @@ class EdFiAPI:
                 swagger_url = endpoint["endpointUri"]
                 hash = hashlog.get_hash_string(swagger_url)
                 file = os.path.join(cache_dir, f"swagger-{endpoint_type}-{hash}.json")
-                if os.path.isfile(file) and time.time()-os.path.getmtime(file)<self.SWAGGER_CACHE_TTL:
+                if not self.lightbeam.clear and os.path.isfile(file) and time.time()-os.path.getmtime(file)<self.SWAGGER_CACHE_TTL:
                     self.logger.debug(f"re-using cached {endpoint_type} swagger doc (from {file})...")
                     with open(file) as f:
                         swagger = json.load(f)
@@ -207,7 +207,7 @@ class EdFiAPI:
         cache_file = os.path.join(cache_dir, f"descriptor-values-{hash}.csv")
 
         self.lightbeam.reset_counters()
-        if os.path.isfile(cache_file) and time.time()-os.path.getmtime(cache_file)<self.DESCRIPTORS_CACHE_TTL:
+        if not self.lightbeam.clear and os.path.isfile(cache_file) and time.time()-os.path.getmtime(cache_file)<self.DESCRIPTORS_CACHE_TTL:
             # cache file exists and we can use it!
             self.logger.debug(f"re-using cached descriptor values (from {cache_file})...")
             with open(cache_file, 'r') as csvfile:
