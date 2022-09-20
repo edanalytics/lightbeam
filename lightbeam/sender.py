@@ -10,6 +10,7 @@ class Sender:
 
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
+        self.lightbeam.reset_counters()
         self.logger = self.lightbeam.logger
         self.hashlog_data = {}
     
@@ -23,7 +24,7 @@ class Sender:
             self.logger.info("sending endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_send(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
-            self.logger.info("  (status counts: {0}) ".format(str(self.lightbeam.status_counts)))
+            self.logger.info("  (status counts: {0}) ".format(self.lightbeam.status_counts))
             self.lightbeam.log_status_reasons()
 
     # Sends a single endpoint
@@ -74,7 +75,7 @@ class Sender:
                             tasks = []
                         
                     if self.lightbeam.num_skipped>0:
-                        self.logger.info("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.num_skipped, total_counter))
+                        self.logger.info("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.lightbeam.num_skipped, total_counter))
                         
                 await self.lightbeam.do_tasks(tasks, total_counter)
             
@@ -92,12 +93,11 @@ class Sender:
             async with client.post(self.lightbeam.api.config["data_url"] + endpoint, data=data,
                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                 body = await response.text()
-                status = str(response.status)
-                if status=='400': self.lightbeam.api.update_oauth(client)
+                if response.status==400: self.lightbeam.api.update_oauth(client)
                 self.lightbeam.num_finished += 1
 
                 # update status_counts (for every-second status update)
-                self.lightbeam.increment_status_counts(status)
+                self.lightbeam.increment_status_counts(response.status)
                 
                 # warn about errors
                 if response.status not in [ 200, 201 ]:
@@ -111,5 +111,5 @@ class Sender:
         
         except Exception as e:
             self.lightbeam.num_errors += 1
-            self.logger.error(str(e), f"  (at line {line} of {file_name} )")
+            self.logger.error("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
 

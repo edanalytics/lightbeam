@@ -8,7 +8,7 @@ from datetime import datetime
 from yaml.loader import SafeLoader
 
 from lightbeam import util
-from lightbeam.edfiapi import EdFiAPI
+from lightbeam.edfi import EdFiAPI
 from lightbeam.validator import Validator
 from lightbeam.sender import Sender
 from lightbeam.deleter import Deleter
@@ -116,8 +116,8 @@ class Lightbeam:
     
     def meets_process_criteria(self, tuple):
         return ( self.force
-                    or (self.older_than!='' and tuple[0]<self.older_than)
-                    or (self.newer_than!="" and tuple[0]>self.newer_than)
+                    or (self.older_than and tuple[0]<self.older_than)
+                    or (self.newer_than and tuple[0]>self.newer_than)
                     or (len(self.resend_status_codes)>0 and tuple[1] in self.resend_status_codes)
                 )
 
@@ -143,7 +143,7 @@ class Lightbeam:
         self.logger.debug("discovering data...")
         endpoints_with_data = []
         for endpoint in endpoints:
-            if len(self.get_data_files_for_endpoint(endpoint))>0:
+            if self.get_data_files_for_endpoint(endpoint):
                 endpoints_with_data.append(endpoint)
         return endpoints_with_data
     
@@ -180,7 +180,7 @@ class Lightbeam:
         period_counter = 0
         while self.num_finished + self.num_skipped < counter:
             period_counter += 1
-            if hasattr(self, "status_counts") and len(self.status_counts.keys())>0 and period_counter%self.STATUS_UPDATE_WAIT==0:
+            if self.status_counts and period_counter%self.STATUS_UPDATE_WAIT==0:
                 self.logger.info("     (status counts: {0}) ".format(str(self.status_counts)))
             await asyncio.sleep(1)
     
@@ -207,7 +207,7 @@ class Lightbeam:
             self.status_reasons[reason] += 1
     
     def log_status_reasons(self):
-        if len(self.status_reasons.keys())>0:
+        if self.status_reasons:
             counter = 0
             for k,v in self.status_reasons.items():
                 counter += 1

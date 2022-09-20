@@ -49,18 +49,18 @@ class EdFiAPI:
         all_endpoints = self.get_sorted_endpoints()
 
         # filter down to only selected endpoints
+        selected_endpoints = all_endpoints
         if selector!="*" and selector!="":
             if "," in selector:
                 selected_endpoints = selector.split(",")
                 selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
             else: selected_endpoints = [ selector ]
-        else: selected_endpoints = all_endpoints
-        unknown_endpoints = list(set(selected_endpoints).difference(set(all_endpoints)))
+        unknown_endpoints = list(set(selected_endpoints).difference(all_endpoints))
         # make sure all selectors resolve to an endpoint
-        if len(unknown_endpoints)>0:
+        if unknown_endpoints:
             self.logger.critical("no match for selector(s) [{0}] to any endpoint in your API; check for typos?".format(", ".join(unknown_endpoints)))
         # make sure we have some endpoints to process
-        if len(selected_endpoints)==0:
+        if not selected_endpoints:
             self.logger.critical("selector filtering left no endpoints to process; check your selector for typos?")
 
         self.lightbeam.endpoints = selected_endpoints
