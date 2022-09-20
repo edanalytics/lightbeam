@@ -92,7 +92,7 @@ show_stacktrace: True
 
 ## `validate`
 ```bash
-lightbeam validate path/to/config.yaml
+lightbeam validate -c path/to/config.yaml
 ```
 You may `validate` your JSONL before transmitting it. This checks that the payloads
 * are valid JSON
@@ -105,19 +105,19 @@ This command will not find invalid reference errors, but is helpful for finding 
 
 ## `send`
 ```bash
-lightbeam send path/to/config.yaml
+lightbeam send -c path/to/config.yaml
 ```
 Sends your JSONL payloads to your Ed-Fi API.
 
 ## `validate+send`
 ```bash
-lightbeam validate+send path/to/config.yaml
+lightbeam validate+send -c path/to/config.yaml
 ```
 This is a shorthand for sequentially running [validate](#validate) and then [send](#send). It can be useful to catching errors in automated pipelines earlier in the `validate` step before you actually `send` problematic data to your Ed-Fi API.
 
 ## `delete`
 ```bash
-lightbeam delete path/to/config.yaml
+lightbeam delete -c path/to/config.yaml
 ```
 Delete payloads by
 1. determing the natural key (set of required fields) for each endpoint
@@ -151,7 +151,7 @@ This tool includes several special features:
 ## Selectors
 Send only a subset of resources or descriptors in your `data_dir` using a selector:
 ```bash
-lightbeam path/to/config.yaml -s schools,students,studentSchoolAssociations
+lightbeam send -c path/to/config.yaml -s schools,students,studentSchoolAssociations
 ```
 
 ## Environment variable references
@@ -167,8 +167,8 @@ edfi_api:
 ## Command-line parameters
 Similarly, you can specify parameters via the command line with
 ```bash
-lightbeam path/to/config.yaml -p '{"CLIENT_ID":"populated", "CLIENT_SECRET":"populatedSecret"}'
-lightbeam path/to/config.yaml --params '{"CLIENT_ID":"populated", "CLIENT_SECRET":"populatedSecret"}'
+lightbeam send -c path/to/config.yaml -p '{"CLIENT_ID":"populated", "CLIENT_SECRET":"populatedSecret"}'
+lightbeam send -c path/to/config.yaml --params '{"CLIENT_ID":"populated", "CLIENT_SECRET":"populatedSecret"}'
 ```
 Command-line parameters override any environment variables of the same name.
 
@@ -179,32 +179,32 @@ By default, only new, never-before-seen payloads are sent.
 
 You may choose to resend payloads last sent before *timestamp* using the `-t` or `--older-than` command-line flag:
 ```bash
-lightbeam path/to/config.yaml -t 2020-12-25T00:00:00
-lightbeam path/to/config.yaml --older-than 2020-12-25T00:00:00
+lightbeam send -c path/to/config.yaml -t 2020-12-25T00:00:00
+lightbeam send -c path/to/config.yaml --older-than 2020-12-25T00:00:00
 ```
 Or you may choose to resend payloads last sent after *timestamp* using the `-n` or `--newer-than` command-line flag:
 ```bash
-lightbeam path/to/config.yaml -n 2020-12-25T00:00:00
-lightbeam path/to/config.yaml --newer-than 2020-12-25T00:00:00
+lightbeam send -c path/to/config.yaml -n 2020-12-25T00:00:00
+lightbeam send -c path/to/config.yaml --newer-than 2020-12-25T00:00:00
 ```
 Or you may choose to resend payloads that returned a certain HTTP status code(s) on the last send using the `-r` or `--retry-status-codes` command-line flag:
 ```bash
-lightbeam path/to/config.yaml -r 200,201
-lightbeam path/to/config.yaml --retry-status-codes 200,201
+lightbeam send -c path/to/config.yaml -r 200,201
+lightbeam send -c path/to/config.yaml --retry-status-codes 200,201
 ```
 These three options may be composed; `lightbeam` will resend payloads that match any conditions (logical OR).
 
 Finally, you can ignore prior state and resend all payloads using the `-f` or `--force` flag:
 ```bash
-lightbeam path/to/config.yaml -f
-lightbeam path/to/config.yaml --force
+lightbeam send -c path/to/config.yaml -f
+lightbeam send -c path/to/config.yaml --force
 ```
 
 ## Cache
-To reduce runtime, `lightbeam` caches the resource and descriptor Swagger docs it fetches from your Ed-Fi API as well as the descriptor values for up to a month. This way, the data does not have to be re-loaded from your API on every run. The cached files are stored in the `cache` directory within your `state_dir`. You may run `lightbeam` with the `-c` or `--clear` flag to clear the cache and force re-fetching the API metadata:
+To reduce runtime, `lightbeam` caches the resource and descriptor Swagger docs it fetches from your Ed-Fi API as well as the descriptor values for up to a month. This way, the data does not have to be re-loaded from your API on every run. The cached files are stored in the `cache` directory within your `state_dir`. You may run `lightbeam` with the `-w` or `--wipe` flag to clear the cache and force re-fetching the API metadata:
 ```bash
-lightbeam path/to/config.yaml -c
-lightbeam path/to/config.yaml --clear
+lightbeam send -c path/to/config.yaml -w
+lightbeam send -c path/to/config.yaml --wipe
 ```
 
 

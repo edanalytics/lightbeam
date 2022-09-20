@@ -111,29 +111,29 @@ class Deleter:
             
             # we have to get the `id` for a particular resource by first searching for its natural keys
             async with client.get(self.lightbeam.api.config["data_url"] + endpoint, params=params,
-                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
-                body = await response.text()
-                if response.status==400: self.lightbeam.api.update_oauth(client)
+                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as get_response:
+                body = await get_response.text()
+                if get_response.status==400: self.lightbeam.api.update_oauth(client)
                 skip_reason = None
-                if response.status in [200, 201]:
+                if get_response.status in [200, 201]:
                     j = json.loads(body)
                     if type(j)==list and len(j)==1:
                         the_id = j[0]['id']
                         # now we can delete by `id`
                         async with client.delete(self.lightbeam.api.config["data_url"] + endpoint + '/' + the_id,
-                                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
-                            body = await response.text()
-                            if response.status==400: self.lightbeam.api.update_oauth(client)
+                                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as delete_response:
+                            body = await delete_response.text()
+                            if delete_response.status==400: self.lightbeam.api.update_oauth(client)
                             self.lightbeam.num_finished += 1
-                            self.lightbeam.increment_status_counts(response.status)
-                            if response.status not in [ 204 ]:
-                                message = str(response.status) + ": " + util.linearize(body)
+                            self.lightbeam.increment_status_counts(delete_response.status)
+                            if delete_response.status not in [ 204 ]:
+                                message = str(delete_response.status) + ": " + util.linearize(body)
                                 self.lightbeam.increment_status_reason(message)
                                 self.lightbeam.num_errors += 1
                     elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
                     elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
                     else: skip_reason = "searching API for payload returned a response that is not a list"
-                else: skip_reason = f"searching API for payload returned a {response.status} response"
+                else: skip_reason = f"searching API for payload returned a {delete_response.status} response"
                 if skip_reason:
                     self.lightbeam.num_skipped += 1
                     self.lightbeam.increment_status_reason(skip_reason)

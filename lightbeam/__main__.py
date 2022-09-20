@@ -11,6 +11,8 @@ class ExitOnExceptionHandler(logging.StreamHandler):
         if record.levelno in (logging.ERROR, logging.CRITICAL):
             raise SystemExit(-1)
 
+DEFAULT_CONFIG_FILE = 'lightbeam.yaml'
+
 # Set up logging
 handler = ExitOnExceptionHandler()
 formatter = logging.Formatter("%(asctime)s.%(msecs)03d %(name)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
@@ -35,15 +37,15 @@ def main(argv=None):
         type=str,
         help='the command to run: `validate`, `send`, `validate+send`, or `delete`'
         )
-    parser.add_argument("-v", "--version",
-        action='store_true',
-        help='view tool version'
-        )
-    parser.add_argument('config_file',
+    parser.add_argument("-c", "--config-file",
         nargs="?",
         type=str,
         help='Specify YAML config file',
         metavar="CONFIG_FILE"
+        )
+    parser.add_argument("-v", "--version",
+        action='store_true',
+        help='view tool version'
         )
     parser.add_argument("-s", "--selector",
         nargs='?',
@@ -53,9 +55,9 @@ def main(argv=None):
         type=str,
         help='specify parameters as a JSON object via CLI (overrides environment variables)'
         )
-    parser.add_argument("-c", "--clear",
+    parser.add_argument("-w", "--wipe",
         action='store_true',
-        help='clear cached Swagger docs and descriptor values'
+        help='wipe cached Swagger docs and descriptor values'
         )
     parser.add_argument("-f", "--force",
         action='store_true',
@@ -89,13 +91,14 @@ def main(argv=None):
         logger.error("Please specify a command to run: `validate`, `send`, `validate+send`, or `delete`. (Try the -h flag for help.)")
 
     if not args.config_file:
-        logger.error("Please pass a config YAML file as a command line argument. (Try the -h flag for help.)")
+        logger.info(f"config file not specified with `-c` flag; looking for `{DEFAULT_CONFIG_FILE}` in current directory...")
+
     lb = Lightbeam(
-        config_file=args.config_file,
+        config_file=args.config_file or f"./{DEFAULT_CONFIG_FILE}",
         logger=logger,
         selector=args.selector,
         params=args.params,
-        clear=args.clear,
+        wipe=args.wipe,
         force=args.force,
         older_than=args.older_than,
         newer_than=args.newer_than,

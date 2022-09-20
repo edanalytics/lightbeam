@@ -8,10 +8,10 @@ from datetime import datetime
 from yaml.loader import SafeLoader
 
 from lightbeam import util
-from lightbeam.edfi import EdFiAPI
-from lightbeam.validator import Validator
-from lightbeam.sender import Sender
-from lightbeam.deleter import Deleter
+from lightbeam.api import EdFiAPI
+from lightbeam.validate import Validator
+from lightbeam.send import Sender
+from lightbeam.delete import Deleter
 
 
 class Lightbeam:
@@ -43,13 +43,13 @@ class Lightbeam:
     MAX_STATUS_REASONS_TO_DISPLAY = 10
     DATA_FILE_EXTENSIONS = ['json', 'jsonl', 'ndjson']
     
-    def __init__(self, config_file, logger=None, selector="*", params="", clear=False, force=False, older_than="", newer_than="", resend_status_codes=""):
+    def __init__(self, config_file, logger=None, selector="*", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes=""):
         self.config_file = config_file
         self.logger = logger
         self.errors = 0
         self.params = params
         self.force = force
-        self.clear = clear
+        self.wipe = wipe
         self.older_than=older_than
         self.newer_than=newer_than
         self.resend_status_codes=resend_status_codes
