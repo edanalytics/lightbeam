@@ -73,10 +73,6 @@ def main(argv=None):
         type=str,
         help='only payloads that returned one of these comma-delimited HTTP status codes on last send will be resent'
         )
-    parser.add_argument("-d", "--delete",
-        type=str,
-        help='deletes records with the IDs in your payload data (for clearing out data you sent previously)'
-        )
     defaults = { "selector":"*", "params": "", "older_than": "", "newer_than": "", "resend_status_codes": "" }
     parser.set_defaults(**defaults)
     args, remaining_argv = parser.parse_known_args()
