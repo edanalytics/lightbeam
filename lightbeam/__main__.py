@@ -11,7 +11,7 @@ class ExitOnExceptionHandler(logging.StreamHandler):
         if record.levelno in (logging.ERROR, logging.CRITICAL):
             raise SystemExit(-1)
 
-DEFAULT_CONFIG_FILE = 'lightbeam.yaml'
+DEFAULT_CONFIG_FILES = ['lightbeam.yaml', 'lightbeam.yml']
 
 # Set up logging
 handler = ExitOnExceptionHandler()
@@ -91,10 +91,18 @@ def main(argv=None):
         logger.error("Please specify a command to run: `validate`, `send`, `validate+send`, or `delete`. (Try the -h flag for help.)")
 
     if not args.config_file:
-        logger.info(f"config file not specified with `-c` flag; looking for `{DEFAULT_CONFIG_FILE}` in current directory...")
+        for file in DEFAULT_CONFIG_FILES:
+            test_file = os.path.join(".", file)
+            if os.path.isfile(test_file):
+                args.config_file = test_file
+                logger.info(f"config file not specified with `-c` flag... but found and using ./{file}")
+                break
+
+    if not args.config_file:
+        logger.error("config file not specified with `-c` flag, and no default {" + ", ".join(DEFAULT_CONFIG_FILES) + "} found")
 
     lb = Lightbeam(
-        config_file=args.config_file or f"./{DEFAULT_CONFIG_FILE}",
+        config_file=args.config_file,
         logger=logger,
         selector=args.selector,
         params=args.params,

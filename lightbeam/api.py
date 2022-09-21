@@ -74,12 +74,7 @@ class EdFiAPI:
                 factor=self.lightbeam.config['connection']["backoff_factor"],
                 statuses=self.lightbeam.config['connection']["retry_statuses"]
                 ),
-            connector=aiohttp.connector.TCPConnector(limit=self.lightbeam.config['connection']["pool_size"]),
-            headers={
-                    "accept": "application/json",
-                    "Content-Type": "application/json",
-                    "authorization": "Bearer " + self.token
-                }
+            connector=aiohttp.connector.TCPConnector(limit=self.lightbeam.config['connection']["pool_size"])
             )
     
     # Obtains an OAuth token from the API and sets the client headers accordingly
@@ -94,14 +89,19 @@ class EdFiAPI:
                     ),
                 verify=self.lightbeam.config["connection"]["verify_ssl"])
             self.token = token_response.json()["access_token"]
+            self.headers = {
+                    "accept": "application/json",
+                    "Content-Type": "application/json",
+                    "authorization": "Bearer " + self.token
+                }
         except Exception as e:
             self.logger.error(f"OAuth token could not be obtained; check your API credentials?")
 
-    def update_oauth(self, client):
+    def update_oauth(self):
         self.logger.debug("fetching new OAuth token due to a 400 response...")
         self.lightbeam.is_locked = True
         self.do_oauth()
-        client.headers = {
+        self.headers = {
             "accept": "application/json",
             "Content-Type": "application/json",
             "authorization": "Bearer " + self.token
@@ -158,18 +158,25 @@ class EdFiAPI:
         self.descriptors_swagger = None
         self.resources_swagger = None
         
-        cache_dir = os.path.join(self.lightbeam.config["state_dir"], "cache")
-        if not os.path.isdir(cache_dir):
-            self.logger.debug("creating cache dir {0}".format(cache_dir))
-            os.mkdir(cache_dir)
+        if self.lightbeam.track_state:
+            cache_dir = os.path.join(self.lightbeam.config["state_dir"], "cache")
+            if not os.path.isdir(cache_dir):
+                self.logger.debug("creating cache dir {0}".format(cache_dir))
+                os.mkdir(cache_dir)
 
         for endpoint in response:
             endpoint_type = endpoint["name"].lower()
             if endpoint_type=="descriptors" or endpoint_type=="resources":
                 swagger_url = endpoint["endpointUri"]
-                hash = hashlog.get_hash_string(swagger_url)
-                file = os.path.join(cache_dir, f"swagger-{endpoint_type}-{hash}.json")
-                if not self.lightbeam.wipe and os.path.isfile(file) and time.time()-os.path.getmtime(file)<self.SWAGGER_CACHE_TTL:
+                if self.lightbeam.track_state:
+                    hash = hashlog.get_hash_string(swagger_url)
+                    file = os.path.join(cache_dir, f"swagger-{endpoint_type}-{hash}.json")
+                if (
+                    self.lightbeam.track_state  # we have a state_dir in which to store
+                    and not self.lightbeam.wipe # we aren't clearing the cache
+                    and os.path.isfile(file)    # the cache file exists
+                    and time.time()-os.path.getmtime(file)<self.SWAGGER_CACHE_TTL # cache file isn't expired
+                ):
                     self.logger.debug(f"re-using cached {endpoint_type} swagger doc (from {file})...")
                     with open(file) as f:
                         swagger = json.load(f)
@@ -179,12 +186,13 @@ class EdFiAPI:
                         swagger = requests.get(swagger_url,
                                                     verify=self.lightbeam.config["connection"]["verify_ssl"]
                                                     ).json()
-                        self.logger.debug(f"(saving to {file})")
                     except Exception as e:
                         self.logger.critical(f"Unable to load {endpoint_type} Swagger from API... terminating. Check API connectivity.")
 
-                    with open(file, 'w') as f:
-                        json.dump(swagger, f)
+                    if self.lightbeam.track_state:
+                        self.logger.debug(f"(saving to {file})")
+                        with open(file, 'w') as f:
+                            json.dump(swagger, f)
                 
             if endpoint_type=="descriptors": self.descriptors_swagger = swagger
             if endpoint_type=="resources": self.resources_swagger = swagger
@@ -194,20 +202,27 @@ class EdFiAPI:
     # `validate_endpoint()` to check for invalid descriptor values before `send`ing.
     async def load_descriptors_values(self):
         self.logger.debug("loading descriptor values...")
-        cache_dir = os.path.join(self.lightbeam.config["state_dir"], "cache")
-        if not os.path.isdir(cache_dir):
-            self.logger.debug("creating cache dir {0}".format(cache_dir))
-            os.mkdir(cache_dir)
+        if self.lightbeam.track_state:
+            cache_dir = os.path.join(self.lightbeam.config["state_dir"], "cache")
+            if not os.path.isdir(cache_dir):
+                self.logger.debug("creating cache dir {0}".format(cache_dir))
+                os.mkdir(cache_dir)
         
         # get token with which to send requests
         self.do_oauth()
 
         # check for cached descriptor values
-        hash = hashlog.get_hash_string(self.config["base_url"])
-        cache_file = os.path.join(cache_dir, f"descriptor-values-{hash}.csv")
+        if self.lightbeam.track_state:
+            hash = hashlog.get_hash_string(self.config["base_url"])
+            cache_file = os.path.join(cache_dir, f"descriptor-values-{hash}.csv")
 
         self.lightbeam.reset_counters()
-        if not self.lightbeam.wipe and os.path.isfile(cache_file) and time.time()-os.path.getmtime(cache_file)<self.DESCRIPTORS_CACHE_TTL:
+        if (
+            self.lightbeam.track_state     # we have a state_dir, and therefore a cache dir in which to save
+            and not self.lightbeam.wipe    # we're not wiping/rebuilding the cache
+            and os.path.isfile(cache_file) # the cache file exists
+            and time.time()-os.path.getmtime(cache_file)<self.DESCRIPTORS_CACHE_TTL # the cache file isn't expired
+        ):
             # cache file exists and we can use it!
             self.logger.debug(f"re-using cached descriptor values (from {cache_file})...")
             with open(cache_file, 'r') as csvfile:
@@ -233,12 +248,13 @@ class EdFiAPI:
                 await self.lightbeam.do_tasks(tasks, counter)
 
             # save
-            self.logger.debug(f"saving descriptor values to {cache_file}...")
-            header = ['desriptor', 'namespace', 'codeValue', 'shortDescription', 'description']
-            with open(cache_file, 'w', encoding='UTF8', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(header)
-                writer.writerows(self.descriptor_values)
+            if self.lightbeam.track_state:
+                self.logger.debug(f"saving descriptor values to {cache_file}...")
+                header = ['desriptor', 'namespace', 'codeValue', 'shortDescription', 'description']
+                with open(cache_file, 'w', encoding='UTF8', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(header)
+                    writer.writerows(self.descriptor_values)
 
     # Fetches valid descriptor values for a specific descriptor endpoint
     async def get_descriptor_values(self, client, descriptor):
@@ -248,7 +264,7 @@ class EdFiAPI:
             while self.lightbeam.is_locked:
                 await asyncio.sleep(1)
             
-            async with client.get(self.config["data_url"] + descriptor + "s",
+            async with client.get(util.url_join(self.config["data_url"], descriptor+"s"),
                                     ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
                 body = await response.text()
                 status = str(response.status)

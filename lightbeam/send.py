@@ -24,7 +24,7 @@ class Sender:
             self.logger.info("sending endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_send(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
-            self.logger.info("  (status counts: {0}) ".format(self.lightbeam.status_counts))
+            self.logger.info("  (final status counts: {0}) ".format(self.lightbeam.status_counts))
             self.lightbeam.log_status_reasons()
 
     # Sends a single endpoint
@@ -36,8 +36,9 @@ class Sender:
         # - the returned status code for the last send
         # Using these hashlogs, we can do things like retry JSON that previously
         # failed, resend JSON older than a certain age, etc.
-        hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
-        self.hashlog_data = hashlog.load(hashlog_file)
+        if self.lightbeam.track_state:
+            hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
+            self.hashlog_data = hashlog.load(hashlog_file)
         
         self.lightbeam.reset_counters()
         # here we set up a smart retry client with exponential backoff and a connection pool
@@ -55,7 +56,7 @@ class Sender:
                         # compute hash of current row
                         hash = hashlog.get_hash(data)
                         # check if we've posted this data before
-                        if hash in self.hashlog_data.keys():
+                        if self.lightbeam.track_state and hash in self.hashlog_data.keys():
                             # check if the last post meets criteria for a resend
                             if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
                                 # yes, we need to (re)post it; append to task queue
@@ -80,34 +81,42 @@ class Sender:
                 await self.lightbeam.do_tasks(tasks, total_counter)
             
             # any task may have updated the hashlog, so we need to re-save it out to disk
-            hashlog.save(hashlog_file, self.hashlog_data)
+            if self.lightbeam.track_state:
+                hashlog.save(hashlog_file, self.hashlog_data)
         
     
     # Posts a single data payload to a single endpoint using the client
     async def do_post(self, endpoint, file_name, data, client, line, hash):
         try:
-            # wait if another process has locked lightbeam while we refresh the oauth token:
-            while self.lightbeam.is_locked:
-                await asyncio.sleep(1)
-            
-            async with client.post(self.lightbeam.api.config["data_url"] + endpoint, data=data,
-                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
-                body = await response.text()
-                if response.status==400: self.lightbeam.api.update_oauth(client)
-                self.lightbeam.num_finished += 1
+            status = 401
+            while status==401:
+                
+                # wait if another process has locked lightbeam while we refresh the oauth token:
+                while self.lightbeam.is_locked:
+                    await asyncio.sleep(1)
+                
+                async with client.post(util.url_join(self.lightbeam.api.config["data_url"], endpoint), data=data,
+                                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                                        headers=self.lightbeam.api.headers) as response:
+                    body = await response.text()
+                    status = response.status
+                    if status!=401:
+                        # update status_counts (for every-second status update)
+                        self.lightbeam.increment_status_counts(status)
+                        self.lightbeam.num_finished += 1
+                        
+                        # warn about errors
+                        if response.status not in [ 200, 201 ]:
+                            message = str(response.status) + ": " + util.linearize(body)
+                            self.lightbeam.increment_status_reason(message)
+                            self.lightbeam.num_errors += 1
+                        
+                        # update hashlog
+                        if self.lightbeam.track_state:
+                            self.hashlog_data[hash] = (round(time.time()), response.status)
 
-                # update status_counts (for every-second status update)
-                self.lightbeam.increment_status_counts(response.status)
-                
-                # warn about errors
-                if response.status not in [ 200, 201 ]:
-                    message = str(response.status) + ": " + util.linearize(body)
-                    self.lightbeam.increment_status_reason(message)
-                    self.lightbeam.num_errors += 1
-                
-                # update hashlog
-                if not self.lightbeam.force:
-                    self.hashlog_data[hash] = (round(time.time()), response.status)
+                    else:
+                        self.lightbeam.api.update_oauth()
         
         except Exception as e:
             self.lightbeam.num_errors += 1

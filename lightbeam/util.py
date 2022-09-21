@@ -34,3 +34,8 @@ def interpolate_params(params_structure, payload):
             value = value[key]
         params[k] = value
     return params
+
+def url_join(*args):
+    return '/'.join(
+        map(lambda x: str(x).rstrip('/'), filter(lambda x: x is not None, args))
+    )

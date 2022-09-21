@@ -17,16 +17,15 @@ from lightbeam.delete import Deleter
 class Lightbeam:
 
     config_defaults = {
-        "state_dir": os.path.join(os.path.expanduser("~"), ".lightbeam", ""),
         "data_dir": "./",
         "namespace": "ed-fi",
         "edfi_api": {
-            "base_url": "https://localhost/api",
+            "base_url": "",
             "version": 3,
             "mode": "year_specific",
             "year": datetime.today().year,
-            "client_id": "populated",
-            "client_secret": "populatedSecret"
+            "client_id": "",
+            "client_secret": ""
         },
         "connection": {
             "pool_size": 8,
@@ -65,7 +64,12 @@ class Lightbeam:
         user_config = self.load_config_file()
         
         self.config = util.merge_dicts(user_config, self.config_defaults)
-        self.config["state_dir"] = os.path.expanduser(self.config["state_dir"])
+        if "state_dir" in self.config:
+            self.track_state = True
+            self.config["state_dir"] = os.path.expanduser(self.config["state_dir"])
+        else:
+            self.track_state = False
+            self.logger.warning("`state_dir` not specified in config; continuing without state-tracking")
         self.config["data_dir"] = os.path.expanduser(self.config["data_dir"])
 
         # configure log level
@@ -91,7 +95,7 @@ class Lightbeam:
         if self.resend_status_codes!='': self.resend_status_codes = [int(code) for code in self.resend_status_codes.split(",")]
 
         # create state_dir if it doesn't exist
-        if not os.path.isdir(self.config["state_dir"]):
+        if self.track_state and not os.path.isdir(self.config["state_dir"]):
             self.logger.debug("creating state dir {0}".format(self.config["state_dir"]))
             os.mkdir(self.config["state_dir"])
     
@@ -181,7 +185,7 @@ class Lightbeam:
         while self.num_finished + self.num_skipped < counter:
             period_counter += 1
             if self.status_counts and period_counter%self.STATUS_UPDATE_WAIT==0:
-                self.logger.info("     (status counts: {0}) ".format(str(self.status_counts)))
+                self.logger.info("  (... status counts: {0}) ".format(str(self.status_counts)))
             await asyncio.sleep(1)
     
 

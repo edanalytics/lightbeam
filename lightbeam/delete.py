@@ -42,14 +42,15 @@ class Deleter:
             self.logger.info("deleting data from endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_deletes(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
-            self.logger.info("  (status counts: {0})".format(self.lightbeam.status_counts))
+            self.logger.info("  (final status counts: {0})".format(self.lightbeam.status_counts))
             self.lightbeam.log_status_reasons()
 
     # Deletes data matching payloads in config.data_dir for single endpoint
     async def do_deletes(self, endpoint):
         # load the hashlog, since we delete previously-seen payloads from it after deleting them
-        hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
-        self.hashlog_data = hashlog.load(hashlog_file)
+        if self.lightbeam.track_state:
+            hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
+            self.hashlog_data = hashlog.load(hashlog_file)
         
         self.lightbeam.reset_counters()
         # here we set up a smart retry client with exponential backoff and a connection pool
@@ -74,7 +75,7 @@ class Deleter:
 
                         # check if we've posted this data before
                         hash = hashlog.get_hash(data)
-                        if hash in self.hashlog_data.keys():
+                        if self.lightbeam.track_state and hash in self.hashlog_data.keys():
                             # check if the last post meets criteria for a delete
                             if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
                                 # yes, we need to delete it; append to task queue
@@ -99,44 +100,61 @@ class Deleter:
                 await self.lightbeam.do_tasks(tasks, counter)
 
             # any task may have updated the hashlog, so we need to re-save it out to disk
-            hashlog.save(hashlog_file, self.hashlog_data)
+            if self.lightbeam.track_state:
+                hashlog.save(hashlog_file, self.hashlog_data)
 
     # Deletes a single payload for a single endpoint
     async def do_delete(self, endpoint, file_name, params, client, line):
         try:
-            # wait if another process has locked lightbeam while we refresh the oauth token:
-            while self.lightbeam.is_locked:
-                print('waiting for lock...')
-                await asyncio.sleep(1)
+            status = 401
+            while status==401:
+                # wait if another process has locked lightbeam while we refresh the oauth token:
+                while self.lightbeam.is_locked:
+                    print('waiting for lock...')
+                    await asyncio.sleep(1)
             
-            # we have to get the `id` for a particular resource by first searching for its natural keys
-            async with client.get(self.lightbeam.api.config["data_url"] + endpoint, params=params,
-                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as get_response:
-                body = await get_response.text()
-                if get_response.status==400: self.lightbeam.api.update_oauth(client)
-                skip_reason = None
-                if get_response.status in [200, 201]:
-                    j = json.loads(body)
-                    if type(j)==list and len(j)==1:
-                        the_id = j[0]['id']
-                        # now we can delete by `id`
-                        async with client.delete(self.lightbeam.api.config["data_url"] + endpoint + '/' + the_id,
-                                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as delete_response:
-                            body = await delete_response.text()
-                            if delete_response.status==400: self.lightbeam.api.update_oauth(client)
-                            self.lightbeam.num_finished += 1
-                            self.lightbeam.increment_status_counts(delete_response.status)
-                            if delete_response.status not in [ 204 ]:
-                                message = str(delete_response.status) + ": " + util.linearize(body)
-                                self.lightbeam.increment_status_reason(message)
-                                self.lightbeam.num_errors += 1
-                    elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
-                    elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
-                    else: skip_reason = "searching API for payload returned a response that is not a list"
-                else: skip_reason = f"searching API for payload returned a {delete_response.status} response"
-                if skip_reason:
-                    self.lightbeam.num_skipped += 1
-                    self.lightbeam.increment_status_reason(skip_reason)
+                # we have to get the `id` for a particular resource by first searching for its natural keys
+                async with client.get(util.url_join(self.lightbeam.api.config["data_url"], endpoint), params=params,
+                                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                                        headers=self.lightbeam.api.headers) as get_response:
+                    body = await get_response.text()
+                    status = get_response.status
+                    if status!=401:
+                        skip_reason = None
+                        if status in [200, 201]:
+                            j = json.loads(body)
+                            if type(j)==list and len(j)==1:
+                                the_id = j[0]['id']
+                                # now we can delete by `id`
+                                async with client.delete(util.url_join(self.lightbeam.api.config["data_url"], endpoint, the_id),
+                                                            ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                                                            headers=self.lightbeam.api.headers) as delete_response:
+                                    body = await delete_response.text()
+                                    status = delete_response.status
+                                    if status!=401:
+                                        self.lightbeam.num_finished += 1
+                                        self.lightbeam.increment_status_counts(delete_response.status)
+                                        if self.lightbeam.track_state:
+                                            del self.hashlog_data[hash]
+                                        if delete_response.status not in [ 204 ]:
+                                            message = str(delete_response.status) + ": " + util.linearize(body)
+                                            self.lightbeam.increment_status_reason(message)
+                                            self.lightbeam.num_errors += 1
+                                    else:
+                                        self.lightbeam.api.update_oauth()
+                                
+                            elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
+                            elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
+                            else: skip_reason = "searching API for payload returned a response that is not a list"
+                        
+                        else: skip_reason = f"searching API for payload returned a {delete_response.status} response"
+                        
+                        if skip_reason:
+                            self.lightbeam.num_skipped += 1
+                            self.lightbeam.increment_status_reason(skip_reason)
+                    
+                    else:
+                        self.lightbeam.api.update_oauth()
                     
         except Exception as e:
             self.num_errors += 1

@@ -179,25 +179,25 @@ By default, only new, never-before-seen payloads are sent.
 
 You may choose to resend payloads last sent before *timestamp* using the `-t` or `--older-than` command-line flag:
 ```bash
-lightbeam send -c path/to/config.yaml -t 2020-12-25T00:00:00
-lightbeam send -c path/to/config.yaml --older-than 2020-12-25T00:00:00
+lightbeam send -c path/to/lightbeam.yaml -t 2020-12-25T00:00:00
+lightbeam send -c path/to/lightbeam.yaml --older-than 2020-12-25T00:00:00
 ```
 Or you may choose to resend payloads last sent after *timestamp* using the `-n` or `--newer-than` command-line flag:
 ```bash
-lightbeam send -c path/to/config.yaml -n 2020-12-25T00:00:00
-lightbeam send -c path/to/config.yaml --newer-than 2020-12-25T00:00:00
+lightbeam send -c path/to/lightbeam.yaml -n 2020-12-25T00:00:00
+lightbeam send -c path/to/lightbeam.yaml --newer-than 2020-12-25T00:00:00
 ```
 Or you may choose to resend payloads that returned a certain HTTP status code(s) on the last send using the `-r` or `--retry-status-codes` command-line flag:
 ```bash
-lightbeam send -c path/to/config.yaml -r 200,201
-lightbeam send -c path/to/config.yaml --retry-status-codes 200,201
+lightbeam send -c path/to/lightbeam.yaml -r 200,201
+lightbeam send -c path/to/lightbeam.yaml --retry-status-codes 200,201
 ```
 These three options may be composed; `lightbeam` will resend payloads that match any conditions (logical OR).
 
 Finally, you can ignore prior state and resend all payloads using the `-f` or `--force` flag:
 ```bash
-lightbeam send -c path/to/config.yaml -f
-lightbeam send -c path/to/config.yaml --force
+lightbeam send -c path/to/lightbeam.yaml -f
+lightbeam send -c path/to/lightbeam.yaml --force
 ```
 
 ## Cache
