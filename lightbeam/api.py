@@ -49,12 +49,23 @@ class EdFiAPI:
         all_endpoints = self.get_sorted_endpoints()
 
         # filter down to only selected endpoints
-        selected_endpoints = all_endpoints
+        selected_endpoints = []
         if selector!="*" and selector!="":
             if "," in selector:
-                selected_endpoints = selector.split(",")
+                my_endpoints = selector.split(",")
+                to_add = []
+                for e in my_endpoints:
+                    if e[-1]=="*": to_add = [x for x in all_endpoints if x.startswith(e[0:-1])]
+                    elif e[0]=="*": to_add = [x for x in all_endpoints if x.endswith(e[1:])]
+                    else: to_add = [e]
+                for e in to_add: selected_endpoints.append(e)
                 selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
-            else: selected_endpoints = [ selector ]
+                selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
+            else:
+                if selector[-1]=="*": selected_endpoints = [x for x in all_endpoints if x.startswith(selector[0:-1])]
+                elif selector[0]=="*": selected_endpoints = [x for x in all_endpoints if x.endswith(selector[1:])]
+                else: selected_endpoints = [selector]
+        else: selected_endpoints = all_endpoints
         unknown_endpoints = list(set(selected_endpoints).difference(all_endpoints))
         # make sure all selectors resolve to an endpoint
         if unknown_endpoints:
@@ -201,6 +212,9 @@ class EdFiAPI:
     # Descriptor values for each Descriptor. These values can then be used by
     # `validate_endpoint()` to check for invalid descriptor values before `send`ing.
     async def load_descriptors_values(self):
+        # get token with which to send requests
+        self.do_oauth()
+
         self.logger.debug("loading descriptor values...")
         if self.lightbeam.track_state:
             cache_dir = os.path.join(self.lightbeam.config["state_dir"], "cache")
@@ -208,11 +222,7 @@ class EdFiAPI:
                 self.logger.debug("creating cache dir {0}".format(cache_dir))
                 os.mkdir(cache_dir)
         
-        # get token with which to send requests
-        self.do_oauth()
-
-        # check for cached descriptor values
-        if self.lightbeam.track_state:
+            # check for cached descriptor values
             hash = hashlog.get_hash_string(self.config["base_url"])
             cache_file = os.path.join(cache_dir, f"descriptor-values-{hash}.csv")
 
@@ -265,10 +275,11 @@ class EdFiAPI:
                 await asyncio.sleep(1)
             
             async with client.get(util.url_join(self.config["data_url"], descriptor+"s"),
-                                    ssl=self.lightbeam.config["connection"]["verify_ssl"]) as response:
+                                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                                    headers=self.lightbeam.api.headers) as response:
                 body = await response.text()
                 status = str(response.status)
-                if status=='400': self.lightbeam.api.update_oauth(client)
+                if status=='401': self.lightbeam.api.update_oauth(client)
                 self.lightbeam.num_finished += 1
                 if response.content_type == "application/json":
                     values = json.loads(body)
