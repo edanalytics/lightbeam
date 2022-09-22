@@ -1,8 +1,8 @@
-from setuptools import setup, find_packages
+import setuptools
+import pathlib
 from io import open
 from os import path
 
-import pathlib
 # The directory containing this file
 HERE = pathlib.Path(__file__).parent
 
@@ -21,11 +21,12 @@ install_requires = [x.strip() for x in all_reqs if ('git+' not in x) and (
 dependency_links = [x.strip().replace('git+', '') for x in all_reqs \
                     if 'git+' not in x]
 
-setup (
+setuptools.setup (
     name = 'lightbeam',
     description = 'Sends JSONL data into an Ed-Fi API',
     version = VERSION,
-    packages = find_packages(), # list of all packages
+    #packages = find_packages(), # list of all packages
+    packages = setuptools.find_namespace_packages(include=['lightbeam', 'lightbeam.*']),
     # package_data={'lightbeam': ['resources/*.txt']},
     install_requires = install_requires,
     python_requires='>=3',
