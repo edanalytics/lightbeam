@@ -222,7 +222,7 @@ For reference, we have achieved throughput rates in excess of 100 requests/secon
 
 
 # Change log
-[2022-06-??] Version 0.0.1 released
+[2022-09-22] Version 0.0.1 released
 
 
 # Contributing
