@@ -133,11 +133,11 @@ class Deleter:
                                     status = delete_response.status
                                     if status!=401:
                                         self.lightbeam.num_finished += 1
-                                        self.lightbeam.increment_status_counts(delete_response.status)
+                                        self.lightbeam.increment_status_counts(status)
                                         if self.lightbeam.track_state:
                                             del self.hashlog_data[hash]
-                                        if delete_response.status not in [ 204 ]:
-                                            message = str(delete_response.status) + ": " + util.linearize(body)
+                                        if status not in [ 204 ]:
+                                            message = str(status) + ": " + util.linearize(body)
                                             self.lightbeam.increment_status_reason(message)
                                             self.lightbeam.num_errors += 1
                                     else:
@@ -147,7 +147,7 @@ class Deleter:
                             elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
                             else: skip_reason = "searching API for payload returned a response that is not a list"
                         
-                        else: skip_reason = f"searching API for payload returned a {delete_response.status} response"
+                        else: skip_reason = f"searching API for payload returned a {status} response"
                         
                         if skip_reason:
                             self.lightbeam.num_skipped += 1

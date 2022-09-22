@@ -64,7 +64,6 @@ class Lightbeam:
         user_config = self.load_config_file()
         
         self.config = util.merge_dicts(user_config, self.config_defaults)
-        print(self.config)
         if "state_dir" in self.config:
             self.track_state = True
             self.config["state_dir"] = os.path.expanduser(self.config["state_dir"])
