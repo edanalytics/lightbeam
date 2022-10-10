@@ -1,5 +1,5 @@
 <!-- Logo/image -->
-![lightbeam](lightbeam/resources/lightbeam.png)
+![lightbeam](https://raw.githubusercontent.com/edanalytics/lightbeam/main/lightbeam/resources/lightbeam.png)
 
 `lightbeam` transmits payloads from JSONL files into an [Ed-Fi API](https://techdocs.ed-fi.org/display/ETKB/Ed-Fi+Operational+Data+Store+and+API).
 <!-- GIF or screenshot? -->
@@ -27,7 +27,7 @@ Guides and Resources -->
 
 # Installation
 ```
-pip install git+https://github.com/edanalytics/lightbeam.git#egg=lightbeam
+pip install lightbeam
 ```
 
 
