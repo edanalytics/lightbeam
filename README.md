@@ -1,5 +1,5 @@
 <!-- Logo/image -->
-![lightbeam](lightbeam/resources/lightbeam.png)
+![lightbeam](https://raw.githubusercontent.com/edanalytics/lightbeam/main/lightbeam/resources/lightbeam.png)
 
 `lightbeam` transmits payloads from JSONL files into an [Ed-Fi API](https://techdocs.ed-fi.org/display/ETKB/Ed-Fi+Operational+Data+Store+and+API).
 <!-- GIF or screenshot? -->
@@ -27,7 +27,7 @@ Guides and Resources -->
 
 # Installation
 ```
-pip install git+https://github.com/edanalytics/lightbeam.git#egg=lightbeam
+pip install lightbeam
 ```
 
 
@@ -221,8 +221,22 @@ Tool performance depends on primarily on the performance of the Ed-Fi API, which
 For reference, we have achieved throughput rates in excess of 100 requests/second against an Ed-Fi ODS & API running in Docker on a laptop.
 
 
-# Change log
-[2022-09-22] Version 0.0.1 released
+# Changelog
+
+
+### v0.0.2
+<details>
+<summary>Released 2022-12-16</summary>
+
+* un-pin requirements.txt dependencies from fixed versions
+</details>
+
+### v0.0.1
+<details>
+<summary>Released 2022-09-22</summary>
+
+* initial release
+</details>
 
 
 # Contributing
