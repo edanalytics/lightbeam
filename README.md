@@ -221,8 +221,22 @@ Tool performance depends on primarily on the performance of the Ed-Fi API, which
 For reference, we have achieved throughput rates in excess of 100 requests/second against an Ed-Fi ODS & API running in Docker on a laptop.
 
 
-# Change log
-[2022-09-22] Version 0.0.1 released
+# Changelog
+
+
+### v0.0.3
+<details>
+<summary>Released 2022-12-16</summary>
+
+* un-pin requirements.txt dependencies from fixed versions
+</details>
+
+### v0.0.1
+<details>
+<summary>Released 2022-09-22</summary>
+
+* initial release
+</details>
 
 
 # Contributing
