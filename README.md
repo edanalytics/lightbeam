@@ -224,7 +224,7 @@ For reference, we have achieved throughput rates in excess of 100 requests/secon
 # Changelog
 
 
-### v0.0.3
+### v0.0.2
 <details>
 <summary>Released 2022-12-16</summary>
 
