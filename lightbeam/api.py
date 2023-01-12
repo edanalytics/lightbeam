@@ -270,40 +270,45 @@ class EdFiAPI:
     # Fetches valid descriptor values for a specific descriptor endpoint
     async def get_descriptor_values(self, client, descriptor):
         self.descriptor_values = []
-        try:
-            fetch_next_page = True
-            limit = self.DESCRIPTORS_PAGE_SIZE
-            offset = 0
-                
-            while fetch_next_page:
-                fetch_next_page = False # prevent infinite loop on any errors below
+        fetch_next_page = True
+        limit = self.DESCRIPTORS_PAGE_SIZE
+        offset = 0
+            
+        while fetch_next_page:
+            fetch_next_page = False # prevent infinite loop on any errors below
 
-                # wait if another process has locked lightbeam while we refresh the oauth token:
-                while self.lightbeam.is_locked:
-                    await asyncio.sleep(1)
-                
+            # wait if another process has locked lightbeam while we refresh the oauth token:
+            while self.lightbeam.is_locked:
+                await asyncio.sleep(1)
+            
+            try:
                 async with client.get(util.url_join(self.config["data_url"], descriptor+"s?limit="+str(limit)+"&offset="+str(offset)),
                                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
                                         headers=self.lightbeam.api.headers) as response:
                     body = await response.text()
                     status = str(response.status)
                     if status=='401': self.lightbeam.api.update_oauth(client)
-                    self.lightbeam.num_finished += 1
-                    if response.content_type == "application/json":
-                        values = json.loads(body)
-                        if type(values) != list:
-                            self.logger.critical(f"Unable to load descriptor values for {descriptor}... API JSON response was not a list of descrptor values.")
-                        for v in values:
-                            self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
-                        if len(values)==limit:
-                            offset += limit
-                            fetch_next_page = True
-                    else: self.logger.critical(f"Unable to load descriptor values for {descriptor}... API response was not JSON.")
+                    elif status not in ['200', '201']:
+                        self.logger.warn(f"Unable to load descriptor values for {descriptor}... {status} API response.")
+                    else:
+                        if response.content_type == "application/json":
+                            values = json.loads(body)
+                            if type(values) != list:
+                                self.logger.warn(f"Unable to load descriptor values for {descriptor}... API JSON response was not a list of descrptor values.")
+                            else:
+                                for v in values:
+                                    self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
+                                if len(values)==limit:
+                                    offset += limit
+                                    fetch_next_page = True
+                        else:
+                            self.logger.warn(f"Unable to load descriptor values for {descriptor}... API response was not JSON.")
 
 
-        except Exception as e:
-            self.logger.critical(f"Unable to load descriptor values for {descriptor} from API... terminating. Check API connectivity.")
-
+            except Exception as e:
+                self.logger.critical(f"Unable to load descriptor values for {descriptor} from API... terminating. Check API connectivity.")
+        
+        self.lightbeam.num_finished += 1
 
     # This function (and the helper below) walks through the swagger for a resource, following references,
     #  grabs all the required (nested) fields, and constructs a structure like this (for assessmentItem):
