@@ -223,6 +223,12 @@ For reference, we have achieved throughput rates in excess of 100 requests/secon
 
 # Changelog
 
+### v0.0.3
+<details>
+<summary>Released 2023-01-12</summary>
+
+* bugfix: add pagination when fetching descriptor values
+</details>
 
 ### v0.0.2
 <details>
