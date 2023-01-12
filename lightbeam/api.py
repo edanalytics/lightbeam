@@ -16,6 +16,7 @@ class EdFiAPI:
 
     SWAGGER_CACHE_TTL = 2629800 # one month in seconds
     DESCRIPTORS_CACHE_TTL = 2629800 # one month in seconds
+    DESCRIPTORS_PAGE_SIZE = 100
     
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
@@ -270,21 +271,35 @@ class EdFiAPI:
     async def get_descriptor_values(self, client, descriptor):
         self.descriptor_values = []
         try:
-            # wait if another process has locked lightbeam while we refresh the oauth token:
-            while self.lightbeam.is_locked:
-                await asyncio.sleep(1)
-            
-            async with client.get(util.url_join(self.config["data_url"], descriptor+"s"),
-                                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                                    headers=self.lightbeam.api.headers) as response:
-                body = await response.text()
-                status = str(response.status)
-                if status=='401': self.lightbeam.api.update_oauth(client)
-                self.lightbeam.num_finished += 1
-                if response.content_type == "application/json":
-                    values = json.loads(body)
-                    for v in values:
-                        self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
+            fetch_next_page = True
+            limit = self.DESCRIPTORS_PAGE_SIZE
+            offset = 0
+                
+            while fetch_next_page:
+                fetch_next_page = False # prevent infinite loop on any errors below
+
+                # wait if another process has locked lightbeam while we refresh the oauth token:
+                while self.lightbeam.is_locked:
+                    await asyncio.sleep(1)
+                
+                async with client.get(util.url_join(self.config["data_url"], descriptor+"s?limit="+str(limit)+"&offset="+str(offset)),
+                                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                                        headers=self.lightbeam.api.headers) as response:
+                    body = await response.text()
+                    status = str(response.status)
+                    if status=='401': self.lightbeam.api.update_oauth(client)
+                    self.lightbeam.num_finished += 1
+                    if response.content_type == "application/json":
+                        values = json.loads(body)
+                        if type(values) != list:
+                            self.logger.critical(f"Unable to load descriptor values for {descriptor}... API JSON response was not a list of descrptor values.")
+                        for v in values:
+                            self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
+                        if len(values)==limit:
+                            offset += limit
+                            fetch_next_page = True
+                    else: self.logger.critical(f"Unable to load descriptor values for {descriptor}... API response was not JSON.")
+
 
         except Exception as e:
             self.logger.critical(f"Unable to load descriptor values for {descriptor} from API... terminating. Check API connectivity.")
