@@ -43,7 +43,7 @@ class EdFiAPI:
 
         self.config["oauth_url"] = api_base["urls"]["oauth"]
         self.config["dependencies_url"] = api_base["urls"]["dependencies"]
-        self.config["data_url"] = self.get_data_url() + '/' + self.lightbeam.config["namespace"] + '/'
+        self.config["data_url"] = self.get_data_url()
         self.config["open_api_metadata_url"] = api_base["urls"]["openApiMetadata"]
 
         # load all endpoints in dependency-order
@@ -248,13 +248,14 @@ class EdFiAPI:
             tasks = []
             counter = 0
             async with self.get_retry_client() as client:
-                for descriptor in self.descriptors_swagger["definitions"]:
-                    if descriptor in ["link", "deletedResource"]: continue
+                for descriptor_path in self.descriptors_swagger["paths"]:
+                    descriptor_path = descriptor_path[1:] # remove leading /
+
+                    # SKIP descriptor_path WITH MORE THAN 2 SLASHES!!!
+                    if descriptor_path.count('/')>1: continue
 
                     counter += 1
-                    descriptor = descriptor.replace(util.camel_case(self.lightbeam.config["namespace"]) + "_", "")
-                    #descriptor = descriptor[0].upper() + descriptor[1:]
-                    tasks.append(asyncio.ensure_future(self.get_descriptor_values(client, descriptor)))
+                    tasks.append(asyncio.ensure_future(self.get_descriptor_values(client, descriptor_path)))
                 
                 await self.lightbeam.do_tasks(tasks, counter)
 
@@ -268,11 +269,13 @@ class EdFiAPI:
                     writer.writerows(self.descriptor_values)
 
     # Fetches valid descriptor values for a specific descriptor endpoint
-    async def get_descriptor_values(self, client, descriptor):
+    async def get_descriptor_values(self, client, descriptor_path):
         self.descriptor_values = []
         fetch_next_page = True
         limit = self.DESCRIPTORS_PAGE_SIZE
         offset = 0
+
+        descriptor = descriptor_path.split('/')[1]
             
         while fetch_next_page:
             fetch_next_page = False # prevent infinite loop on any errors below
@@ -282,7 +285,7 @@ class EdFiAPI:
                 await asyncio.sleep(1)
             
             try:
-                async with client.get(util.url_join(self.config["data_url"], descriptor+"s?limit="+str(limit)+"&offset="+str(offset)),
+                async with client.get(util.url_join(self.config["data_url"], descriptor_path+"?limit="+str(limit)+"&offset="+str(offset)),
                                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
                                         headers=self.lightbeam.api.headers) as response:
                     body = await response.text()

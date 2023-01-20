@@ -95,7 +95,8 @@ class Sender:
                 while self.lightbeam.is_locked:
                     await asyncio.sleep(1)
                 
-                async with client.post(util.url_join(self.lightbeam.api.config["data_url"], endpoint), data=data,
+                async with client.post(util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                                        data=data,
                                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
                                         headers=self.lightbeam.api.headers) as response:
                     body = await response.text()
