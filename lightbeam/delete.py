@@ -114,7 +114,8 @@ class Deleter:
                     await asyncio.sleep(1)
             
                 # we have to get the `id` for a particular resource by first searching for its natural keys
-                async with client.get(util.url_join(self.lightbeam.api.config["data_url"], endpoint), params=params,
+                async with client.get(util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                                        params=params,
                                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
                                         headers=self.lightbeam.api.headers) as get_response:
                     body = await get_response.text()
@@ -126,7 +127,7 @@ class Deleter:
                             if type(j)==list and len(j)==1:
                                 the_id = j[0]['id']
                                 # now we can delete by `id`
-                                async with client.delete(util.url_join(self.lightbeam.api.config["data_url"], endpoint, the_id),
+                                async with client.delete(util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint, the_id),
                                                             ssl=self.lightbeam.config["connection"]["verify_ssl"],
                                                             headers=self.lightbeam.api.headers) as delete_response:
                                     body = await delete_response.text()
