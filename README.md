@@ -38,7 +38,7 @@ Running the tool requires
 An example YAML configuration is below, followed by documentation of each option.
 
 ```yaml
-state_dir: ~/.lighbeam/
+state_dir: ~/.lightbeam/
 data_dir: ./
 namespace: ed-fi
 edfi_api:
