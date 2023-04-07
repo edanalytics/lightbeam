@@ -147,12 +147,15 @@ class EdFiAPI:
         self.logger.debug("fetching resource dependencies...")
         try:
             response = requests.get(self.config["dependencies_url"],
-                                    verify=self.lightbeam.config["connection"]["verify_ssl"]).json()
+                                    verify=self.lightbeam.config["connection"]["verify_ssl"])
+            if response.status_code not in [ 200, 201 ]:
+                raise Exception("Dependencies URL returned status {0} ({1})".format(response.status_code, (response.body[:75] + "...") if len(response.body)>75 else response.body))
+            data = response.json()
         except Exception as e:
             self.logger.critical("Unable to load dependencies from API... terminating. Check API connectivity. ({0})".format(str(e)))
         
         ordered_endpoints = []
-        for e in response:
+        for e in data:
             ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
         return ordered_endpoints
     
@@ -163,6 +166,9 @@ class EdFiAPI:
             self.logger.debug("fetching swagger docs...")
             response = requests.get(self.config["open_api_metadata_url"],
                                     verify=self.lightbeam.config["connection"]["verify_ssl"]).json()
+            if response.status_code not in [ 200, 201 ]:
+                raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.body[:75] + "...") if len(response.body)>75 else response.body))
+
         except Exception as e:
             self.logger.critical("Unable to load Swagger docs from API... terminating. Check API connectivity.")
 
@@ -195,9 +201,13 @@ class EdFiAPI:
                 else:
                     self.logger.debug(f"fetching {endpoint_type} swagger doc...")
                     try:
-                        swagger = requests.get(swagger_url,
+                        response = requests.get(swagger_url,
                                                     verify=self.lightbeam.config["connection"]["verify_ssl"]
-                                                    ).json()
+                                                    )
+                        if response.status_code not in [ 200, 201 ]:
+                            raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.body[:75] + "...") if len(response.body)>75 else response.body))
+                        swagger = response.json()
+
                     except Exception as e:
                         self.logger.critical(f"Unable to load {endpoint_type} Swagger from API... terminating. Check API connectivity.")
 
