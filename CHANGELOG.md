@@ -1,3 +1,10 @@
+### v0.0.6
+<details>
+<summary>Released 2023-04-07</summary>
+
+* bugfix: resolve error fetching Swagger docs
+</details>
+
 ### v0.0.5
 <details>
 <summary>Released 2023-04-07</summary>

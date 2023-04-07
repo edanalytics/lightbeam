@@ -149,7 +149,7 @@ class EdFiAPI:
             response = requests.get(self.config["dependencies_url"],
                                     verify=self.lightbeam.config["connection"]["verify_ssl"])
             if response.status_code not in [ 200, 201 ]:
-                raise Exception("Dependencies URL returned status {0} ({1})".format(response.status_code, (response.body[:75] + "...") if len(response.body)>75 else response.body))
+                raise Exception("Dependencies URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
             data = response.json()
         except Exception as e:
             self.logger.critical("Unable to load dependencies from API... terminating. Check API connectivity. ({0})".format(str(e)))
@@ -165,9 +165,10 @@ class EdFiAPI:
         try:
             self.logger.debug("fetching swagger docs...")
             response = requests.get(self.config["open_api_metadata_url"],
-                                    verify=self.lightbeam.config["connection"]["verify_ssl"]).json()
-            if response.status_code not in [ 200, 201 ]:
-                raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.body[:75] + "...") if len(response.body)>75 else response.body))
+                                    verify=self.lightbeam.config["connection"]["verify_ssl"])
+            if not response.ok:
+                raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
+            openapi = response.json()
 
         except Exception as e:
             self.logger.critical("Unable to load Swagger docs from API... terminating. Check API connectivity.")
@@ -182,7 +183,7 @@ class EdFiAPI:
                 self.logger.debug("creating cache dir {0}".format(cache_dir))
                 os.mkdir(cache_dir)
 
-        for endpoint in response:
+        for endpoint in openapi:
             endpoint_type = endpoint["name"].lower()
             if endpoint_type=="descriptors" or endpoint_type=="resources":
                 swagger_url = endpoint["endpointUri"]
@@ -204,8 +205,8 @@ class EdFiAPI:
                         response = requests.get(swagger_url,
                                                     verify=self.lightbeam.config["connection"]["verify_ssl"]
                                                     )
-                        if response.status_code not in [ 200, 201 ]:
-                            raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.body[:75] + "...") if len(response.body)>75 else response.body))
+                        if not response.ok:
+                            raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
                         swagger = response.json()
 
                     except Exception as e:
