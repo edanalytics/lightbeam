@@ -1,1 +1,1 @@
-include VERSION.txt requirements.txt
+include lightbeam/VERSION.txt requirements.txt

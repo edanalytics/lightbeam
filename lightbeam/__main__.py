@@ -81,7 +81,7 @@ def main(argv=None):
     
     if args.version:
         lb_dir = os.path.dirname(os.path.abspath(__file__))
-        version_file = os.path.join(lb_dir, '..', 'VERSION.txt')
+        version_file = os.path.join(lb_dir, 'VERSION.txt')
         with open(version_file, 'r') as f:
             VERSION = f.read().strip()
             print(f"lightbeam, version {VERSION}")
