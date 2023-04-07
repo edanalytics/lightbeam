@@ -111,6 +111,9 @@ class Sender:
                             message = str(response.status) + ": " + util.linearize(body)
                             self.lightbeam.increment_status_reason(message)
                             self.lightbeam.num_errors += 1
+                            if response.status==400:
+                                raise Exception(message)
+
                         
                         # update hashlog
                         if self.lightbeam.track_state:
@@ -121,5 +124,5 @@ class Sender:
         
         except Exception as e:
             self.lightbeam.num_errors += 1
-            self.logger.error("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
+            self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
 
