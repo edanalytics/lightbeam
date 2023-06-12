@@ -87,14 +87,14 @@ class Sender:
     
     # Posts a single data payload to a single endpoint using the client
     async def do_post(self, endpoint, file_name, data, client, line, hash):
-        try:
-            status = 401
-            while status==401:
-                
-                # wait if another process has locked lightbeam while we refresh the oauth token:
-                while self.lightbeam.is_locked:
-                    await asyncio.sleep(1)
-                
+        status = 401
+        while status==401:
+            
+            # wait if another process has locked lightbeam while we refresh the oauth token:
+            while self.lightbeam.is_locked:
+                await asyncio.sleep(1)
+            
+            try:
                 async with client.post(util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
                                         data=data,
                                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
@@ -122,7 +122,8 @@ class Sender:
                     else:
                         self.lightbeam.api.update_oauth()
         
-        except Exception as e:
-            self.lightbeam.num_errors += 1
-            self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
+            except Exception as e:
+                status = 400
+                self.lightbeam.num_errors += 1
+                self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
 

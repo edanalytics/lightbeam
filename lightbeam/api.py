@@ -80,7 +80,7 @@ class EdFiAPI:
     # Returns a client object with exponential retry and other parameters per configs
     def get_retry_client(self):
         return RetryClient(
-            timeout=aiohttp.ClientTimeout(total=self.lightbeam.config['connection']["timeout"]),
+            timeout=aiohttp.ClientTimeout(sock_connect=self.lightbeam.config['connection']["timeout"]),
             retry_options=ExponentialRetry(
                 attempts=self.lightbeam.config['connection']["num_retries"],
                 factor=self.lightbeam.config['connection']["backoff_factor"],
