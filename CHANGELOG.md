@@ -1,3 +1,13 @@
+### v0.0.7
+<details>
+<summary>Released 2023-06-13</summary>
+
+* bugfix: [fixing a bug with Ed-Fi 6.1 API's dependencies](https://github.com/edanalytics/lightbeam/pull/9)
+* bugfix: [fixing a bug with per-request timeout](https://github.com/edanalytics/lightbeam/pull/11)
+* feature: [adding an option to produce structured output](https://github.com/edanalytics/lightbeam/pull/10)
+* feature: [adding skip exit code](https://github.com/edanalytics/lightbeam/pull/12)
+</details>
+
 ### v0.0.6
 <details>
 <summary>Released 2023-04-07</summary>
