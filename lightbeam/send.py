@@ -163,20 +163,20 @@ class Sender:
                             message = str(response.status) + ": " + util.linearize(body)
 
                             # update run metadata...
-                            if "failed_statuses" not in self.metadata["resources"][endpoint].keys():
-                                self.metadata["resources"][endpoint].update({"failed_statuses": {}})
-                            if response.status not in self.metadata["resources"][endpoint]["failed_statuses"].keys():
-                                self.metadata["resources"][endpoint]["failed_statuses"].update({response.status: {}})
-                            if message not in self.metadata["resources"][endpoint]["failed_statuses"][response.status].keys():
-                                self.metadata["resources"][endpoint]["failed_statuses"][response.status].update({message: {}})
-                            if "files" not in self.metadata["resources"][endpoint]["failed_statuses"][response.status][message].keys():
-                                self.metadata["resources"][endpoint]["failed_statuses"][response.status][message].update({"files": {}})
-                            if file_name not in self.metadata["resources"][endpoint]["failed_statuses"][response.status][message]["files"].keys():
-                                self.metadata["resources"][endpoint]["failed_statuses"][response.status][message]["files"].update({file_name: {}})
-                            if "line_numbers" not in self.metadata["resources"][endpoint]["failed_statuses"][response.status][message]["files"][file_name].keys():
-                                self.metadata["resources"][endpoint]["failed_statuses"][response.status][message]["files"][file_name].update({"line_numbers": []})
-                            self.metadata["resources"][endpoint]["failed_statuses"][response.status][message]["files"][file_name]["line_numbers"].append(line)
-                            
+                            failed_statuses_dict = self.metadata["resources"][endpoint].get("failed_statuses", {})
+                            if response.status not in failed_statuses_dict.keys():
+                                failed_statuses_dict.update({response.status: {}})
+                            if message not in failed_statuses_dict[response.status].keys():
+                                failed_statuses_dict[response.status].update({message: {}})
+                            if "files" not in failed_statuses_dict[response.status][message].keys():
+                                failed_statuses_dict[response.status][message].update({"files": {}})
+                            if file_name not in failed_statuses_dict[response.status][message]["files"].keys():
+                                failed_statuses_dict[response.status][message]["files"].update({file_name: {}})
+                            if "line_numbers" not in failed_statuses_dict[response.status][message]["files"][file_name].keys():
+                                failed_statuses_dict[response.status][message]["files"][file_name].update({"line_numbers": []})
+                            failed_statuses_dict[response.status][message]["files"][file_name]["line_numbers"].append(line)
+                            self.metadata["resources"][endpoint]["failed_statuses"] = failed_statuses_dict
+
                             # update output and counters
                             self.lightbeam.increment_status_reason(message)
                             if response.status==400:
