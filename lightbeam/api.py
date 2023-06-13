@@ -154,6 +154,10 @@ class EdFiAPI:
         except Exception as e:
             self.logger.critical("Unable to load dependencies from API... terminating. Check API connectivity. ({0})".format(str(e)))
         
+        # Sort `data` by order (not sorted by default in Ed-Fi 6.1)
+        data = list(filter(lambda x: "Create" in x['operations'], data))
+        data = sorted(data, key=lambda x: x['order'])
+
         ordered_endpoints = []
         for e in data:
             ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
