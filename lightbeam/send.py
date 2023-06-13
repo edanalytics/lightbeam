@@ -45,26 +45,29 @@ class Sender:
         ### Create structured output results_file if necessary
         if self.lightbeam.results_file:
             self.end_timestamp = datetime.datetime.now()
-            self.metadata.update({"completed_at": self.end_timestamp.isoformat(timespec='microseconds')})
-            self.metadata.update({"runtime_sec": (self.end_timestamp - self.start_timestamp).total_seconds()})
-            self.metadata.update({"total_records_processed": sum(item['records_processed'] for item in self.metadata["resources"].values())})
-            self.metadata.update({"total_records_skipped": sum(item['records_skipped'] for item in self.metadata["resources"].values())})
-            self.metadata.update({"total_records_failed": sum(item['records_failed'] for item in self.metadata["resources"].values())})
+            self.metadata.update({
+                "completed_at": self.end_timestamp.isoformat(timespec='microseconds'),
+                "runtime_sec": (self.end_timestamp - self.start_timestamp).total_seconds(),
+                "total_records_processed": sum(item['records_processed'] for item in self.metadata["resources"].values()),
+                "total_records_skipped": sum(item['records_skipped'] for item in self.metadata["resources"].values()),
+                "total_records_failed": sum(item['records_failed'] for item in self.metadata["resources"].values())
+            })
             # total up counts by message and status
-            for resource in self.metadata["resources"].keys():
-                if "failed_statuses" in self.metadata["resources"][resource].keys():
-                    for status in self.metadata["resources"][resource]["failed_statuses"].keys():
+            for resource, resource_metadata in self.metadata["resources"].items():
+                if "failed_statuses" in resource_metadata.keys():
+                    for status, status_metadata in resource_metadata["failed_statuses"].items():
                         total_num_errs = 0
-                        for message in self.metadata["resources"][resource]["failed_statuses"][status].keys():
-                            for file in self.metadata["resources"][resource]["failed_statuses"][status][message]["files"].keys():
-                                num_errs = len(self.metadata["resources"][resource]["failed_statuses"][status][message]["files"][file]["line_numbers"])
-                                self.metadata["resources"][resource]["failed_statuses"][status][message]["files"][file].update({"count": num_errs})
-                                self.metadata["resources"][resource]["failed_statuses"][status][message]["files"][file]["line_numbers"] = ",".join(str(x) for x in self.metadata["resources"][resource]["failed_statuses"][status][message]["files"][file]["line_numbers"])
+                        for message, message_metadata in status_metadata.items():
+                            for file, file_metadata in message_metadata["files"].items():
+                                num_errs = len(file_metadata["line_numbers"])
+                                file_metadata.update({
+                                    "count": num_errs,
+                                    "line_numbers": ",".join(str(x) for x in file_metadata["line_numbers"])
+                                })
                                 total_num_errs += num_errs
-                        self.metadata["resources"][resource]["failed_statuses"][status].update({"count": total_num_errs})
+                        status_metadata.update({"count": total_num_errs})
             with open(self.lightbeam.results_file, 'w') as fp:
                 fp.write(json.dumps(self.metadata, indent=4))
-                fp.close()
 
 
     # Sends a single endpoint
@@ -127,9 +130,11 @@ class Sender:
                 hashlog.save(hashlog_file, self.hashlog_data)
             
             # update metadata counts for this endpoint
-            self.metadata["resources"][endpoint].update({"records_processed": total_counter})
-            self.metadata["resources"][endpoint].update({"records_skipped": self.lightbeam.num_skipped})
-            self.metadata["resources"][endpoint].update({"records_failed": self.lightbeam.num_errors})
+            self.metadata["resources"][endpoint].update({
+                "records_processed": total_counter,
+                "records_skipped": self.lightbeam.num_skipped,
+                "records_failed": self.lightbeam.num_errors
+            })
     
     
     # Posts a single data payload to a single endpoint using the client
