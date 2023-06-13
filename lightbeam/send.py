@@ -1,6 +1,8 @@
 import os
 import time
+import json
 import asyncio
+import datetime
 
 from lightbeam import util
 from lightbeam import hashlog
@@ -13,9 +15,22 @@ class Sender:
         self.lightbeam.reset_counters()
         self.logger = self.lightbeam.logger
         self.hashlog_data = {}
+        self.start_timestamp = datetime.datetime.now()
     
     # Sends all (selected) endpoints
     def send(self):
+
+        # Initialize a dictionary for tracking run metadata (for structured output)
+        self.metadata = {
+            "started_at": self.start_timestamp.isoformat(timespec='microseconds'),
+            "working_dir": os.getcwd(),
+            "config_file": self.lightbeam.config_file,
+            "data_dir": self.lightbeam.config["data_dir"],
+            "api_url": self.lightbeam.config["edfi_api"]["base_url"],
+            "namespace": self.lightbeam.config["namespace"],
+            "resources": {}
+        }
+
         # get token with which to send requests
         self.lightbeam.api.do_oauth()
 
@@ -26,6 +41,34 @@ class Sender:
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
             self.logger.info("  (final status counts: {0}) ".format(self.lightbeam.status_counts))
             self.lightbeam.log_status_reasons()
+        
+        ### Create structured output results_file if necessary
+        if self.lightbeam.results_file:
+            self.end_timestamp = datetime.datetime.now()
+            self.metadata.update({
+                "completed_at": self.end_timestamp.isoformat(timespec='microseconds'),
+                "runtime_sec": (self.end_timestamp - self.start_timestamp).total_seconds(),
+                "total_records_processed": sum(item['records_processed'] for item in self.metadata["resources"].values()),
+                "total_records_skipped": sum(item['records_skipped'] for item in self.metadata["resources"].values()),
+                "total_records_failed": sum(item['records_failed'] for item in self.metadata["resources"].values())
+            })
+            # total up counts by message and status
+            for resource, resource_metadata in self.metadata["resources"].items():
+                if "failed_statuses" in resource_metadata.keys():
+                    for status, status_metadata in resource_metadata["failed_statuses"].items():
+                        total_num_errs = 0
+                        for message, message_metadata in status_metadata.items():
+                            for file, file_metadata in message_metadata["files"].items():
+                                num_errs = len(file_metadata["line_numbers"])
+                                file_metadata.update({
+                                    "count": num_errs,
+                                    "line_numbers": ",".join(str(x) for x in file_metadata["line_numbers"])
+                                })
+                                total_num_errs += num_errs
+                        status_metadata.update({"count": total_num_errs})
+            with open(self.lightbeam.results_file, 'w') as fp:
+                fp.write(json.dumps(self.metadata, indent=4))
+
 
     # Sends a single endpoint
     async def do_send(self, endpoint):
@@ -40,6 +83,8 @@ class Sender:
             hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
             self.hashlog_data = hashlog.load(hashlog_file)
         
+        self.metadata["resources"].update({endpoint: {}})
+
         self.lightbeam.reset_counters()
         # here we set up a smart retry client with exponential backoff and a connection pool
         async with self.lightbeam.api.get_retry_client() as client:
@@ -83,7 +128,14 @@ class Sender:
             # any task may have updated the hashlog, so we need to re-save it out to disk
             if self.lightbeam.track_state:
                 hashlog.save(hashlog_file, self.hashlog_data)
-        
+            
+            # update metadata counts for this endpoint
+            self.metadata["resources"][endpoint].update({
+                "records_processed": total_counter,
+                "records_skipped": self.lightbeam.num_skipped,
+                "records_failed": self.lightbeam.num_errors
+            })
+    
     
     # Posts a single data payload to a single endpoint using the client
     async def do_post(self, endpoint, file_name, data, client, line, hash):
@@ -109,10 +161,27 @@ class Sender:
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
                             message = str(response.status) + ": " + util.linearize(body)
+
+                            # update run metadata...
+                            failed_statuses_dict = self.metadata["resources"][endpoint].get("failed_statuses", {})
+                            if response.status not in failed_statuses_dict.keys():
+                                failed_statuses_dict.update({response.status: {}})
+                            if message not in failed_statuses_dict[response.status].keys():
+                                failed_statuses_dict[response.status].update({message: {}})
+                            if "files" not in failed_statuses_dict[response.status][message].keys():
+                                failed_statuses_dict[response.status][message].update({"files": {}})
+                            if file_name not in failed_statuses_dict[response.status][message]["files"].keys():
+                                failed_statuses_dict[response.status][message]["files"].update({file_name: {}})
+                            if "line_numbers" not in failed_statuses_dict[response.status][message]["files"][file_name].keys():
+                                failed_statuses_dict[response.status][message]["files"][file_name].update({"line_numbers": []})
+                            failed_statuses_dict[response.status][message]["files"][file_name]["line_numbers"].append(line)
+                            self.metadata["resources"][endpoint]["failed_statuses"] = failed_statuses_dict
+
+                            # update output and counters
                             self.lightbeam.increment_status_reason(message)
-                            self.lightbeam.num_errors += 1
                             if response.status==400:
                                 raise Exception(message)
+                            else: self.lightbeam.num_errors += 1
 
                         
                         # update hashlog

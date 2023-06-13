@@ -207,6 +207,68 @@ lightbeam send -c path/to/config.yaml -w
 lightbeam send -c path/to/config.yaml --wipe
 ```
 
+## Structured output of run results
+To produce a JSON file with metadata about the run, invoke lightbeam with
+```bash
+lightbeam send -c path/to/config.yaml --results-file ./results.json
+```
+A sample results file could be:
+
+```json
+{
+    "started_at": "2023-06-08T17:18:25.053207",
+    "working_dir": "/home/someuser/code/sandbox/testing_lightbeam",
+    "config_file": "lightbeam.yml",
+    "data_dir": "./",
+    "api_url": "https://some-ed-fi-api.edu/api",
+    "namespace": "ed-fi",
+    "resources": {
+        "studentSchoolAssociations": {
+            "failed_statuses": {
+                "400": {
+                    "400: { \"message\": \"The request is invalid.\", \"modelState\": { \"request.schoolReference.schoolId\": [ \"JSON integer 1234567899999 is too large or small for an Int32. Path 'schoolReference.schoolId', line 1, position 328.\" ] } }": {
+                        "files": {
+                            "./studentSchoolAssociations.jsonl": {
+                                "line_numbers": "6,4,5,7,8",
+                                "count": 5
+                            }
+                        }
+                    },
+                    "400: { \"message\": \"Validation of 'StudentSchoolAssociation' failed.\\n\\tStudent reference could not be resolved.\\n\" }": {
+                        "files": {
+                            "./studentSchoolAssociations.jsonl": {
+                                "line_numbers": "1,3,2",
+                                "count": 3
+                            }
+                        }
+                    },
+                    "count": 8
+                },
+                "409": {
+                    "409: { \"message\": \"The value supplied for the related 'studentschoolassociation' resource does not exist.\" }": {
+                        "files": {
+                            "./studentSchoolAssociations.jsonl": {
+                                "line_numbers": "9,10,12,14,16,13,11,15,17,18,19,21,22,20",
+                                "count": 14
+                            }
+                        }
+                    },
+                    "count": 14
+                }
+            },
+            "records_processed": 22,
+            "records_skipped": 0,
+            "records_failed": 22
+        }
+    },
+    "completed_at": "2023-06-08T17:18:26.724699",
+    "runtime_sec": 1.671492,
+    "total_records_processed": 22,
+    "total_records_skipped": 0,
+    "total_records_failed": 22
+}
+```
+
 
 # Design
 Some details of the design of this tool are discussed below.

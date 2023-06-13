@@ -42,7 +42,7 @@ class Lightbeam:
     MAX_STATUS_REASONS_TO_DISPLAY = 10
     DATA_FILE_EXTENSIONS = ['json', 'jsonl', 'ndjson']
     
-    def __init__(self, config_file, logger=None, selector="*", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes=""):
+    def __init__(self, config_file, logger=None, selector="*", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes="", results_file=""):
         self.config_file = config_file
         self.logger = logger
         self.errors = 0
@@ -58,6 +58,7 @@ class Lightbeam:
         self.deleter = Deleter(self)
         self.api = EdFiAPI(self)
         self.is_locked = False
+        self.results_file = results_file
 
         # load params and/or env vars for config YAML interpolation
         self.params = json.loads(params) if params else {}

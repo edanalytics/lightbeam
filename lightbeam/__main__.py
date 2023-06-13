@@ -75,7 +75,12 @@ def main(argv=None):
         type=str,
         help='only payloads that returned one of these comma-delimited HTTP status codes on last send will be processed'
         )
-    defaults = { "selector":"*", "params": "", "older_than": "", "newer_than": "", "resend_status_codes": "" }
+    parser.add_argument("--results-file",
+        type=str,
+        help='produces a JSON output file with structured information about run results'
+    )
+
+    defaults = { "selector":"*", "params": "", "older_than": "", "newer_than": "", "resend_status_codes": "", "results_file": "" }
     parser.set_defaults(**defaults)
     args, remaining_argv = parser.parse_known_args()
     
@@ -110,7 +115,8 @@ def main(argv=None):
         force=args.force,
         older_than=args.older_than,
         newer_than=args.newer_than,
-        resend_status_codes=args.resend_status_codes
+        resend_status_codes=args.resend_status_codes,
+        results_file=args.results_file
         )
     try:
         logger.info("starting...")
