@@ -66,7 +66,14 @@ class Sender:
                             total_num_errs += num_errs
                     status_metadata.update({"count": total_num_errs})
         
+        ### Create structured output results_file if necessary
         if self.lightbeam.results_file:
+            
+            # create directory if not exists
+            results_dir = os.path.dirname(self.lightbeam.results_file)
+            if not os.path.isdir(results_dir):
+                os.makedirs(results_dir)
+            
             with open(self.lightbeam.results_file, 'w') as fp:
                 fp.write(json.dumps(self.metadata, indent=4))
 
