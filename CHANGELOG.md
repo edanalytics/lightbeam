@@ -1,3 +1,10 @@
+### v0.0.8
+<details>
+<summary>Released 2023-07-11</summary>
+
+* bugfix: [fixing a bug to create the results_file directory if needed](https://github.com/edanalytics/lightbeam/pull/14)
+</details>
+
 ### v0.0.7
 <details>
 <summary>Released 2023-06-13</summary>
