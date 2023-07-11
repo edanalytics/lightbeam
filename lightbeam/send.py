@@ -70,9 +70,7 @@ class Sender:
         if self.lightbeam.results_file:
             
             # create directory if not exists
-            results_dir = os.path.dirname(self.lightbeam.results_file)
-            if not os.path.isdir(results_dir):
-                os.makedirs(results_dir)
+            os.makedirs(os.path.dirname(self.lightbeam.results_file), exist_ok=True)
             
             with open(self.lightbeam.results_file, 'w') as fp:
                 fp.write(json.dumps(self.metadata, indent=4))
