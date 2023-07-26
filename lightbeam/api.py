@@ -277,7 +277,7 @@ class EdFiAPI:
             # save
             if self.lightbeam.track_state:
                 self.logger.debug(f"saving descriptor values to {cache_file}...")
-                header = ['desriptor', 'namespace', 'codeValue', 'shortDescription', 'description']
+                header = ['descriptor', 'namespace', 'codeValue', 'shortDescription', 'description']
                 with open(cache_file, 'w', encoding='UTF8', newline='') as f:
                     writer = csv.writer(f)
                     writer.writerow(header)
