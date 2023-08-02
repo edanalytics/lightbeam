@@ -41,6 +41,13 @@ class EdFiAPI:
         except Exception as e:
             self.logger.critical("could not parse response from {0} ({1})".format(self.config["base_url"], str(e)))
 
+        for k,v in api_base["urls"].items():
+            v = v.split(':')
+            if v[0] == 'http':
+                v[0] = 'https'
+            v = f"{v[0]}:{v[1]}"
+            api_base["urls"][k] = v
+
         self.config["oauth_url"] = api_base["urls"]["oauth"]
         self.config["dependencies_url"] = api_base["urls"]["dependencies"]
         self.config["data_url"] = self.get_data_url()
