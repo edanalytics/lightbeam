@@ -120,11 +120,15 @@ class Lightbeam:
         return configs
     
     def meets_process_criteria(self, tuple):
-        return ( self.force
-                    or (self.older_than and tuple[0]<self.older_than)
-                    or (self.newer_than and tuple[0]>self.newer_than)
-                    or (len(self.resend_status_codes)>0 and tuple[1] in self.resend_status_codes)
-                )
+        if tuple is None:
+            return True
+
+        return (
+                self.force
+                or (self.older_than and tuple[0]<self.older_than)
+                or (self.newer_than and tuple[0]>self.newer_than)
+                or (len(self.resend_status_codes)>0 and tuple[1] in self.resend_status_codes)
+            )
 
 
     ################### Data discovery and loading methods ####################
