@@ -181,6 +181,12 @@ class EdFiAPI:
                 raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
             openapi = response.json()
 
+            for endpoint in openapi:
+                split_uri = endpoint["endpointUri"].split(':')
+                if split_uri[0] == 'http':
+                    split_uri[0] = 'https'
+                endpoint["endpointUri"] = f"{split_uri[0]}:{split_uri[1]}"
+
         except Exception as e:
             self.logger.critical("Unable to load Swagger docs from API... terminating. Check API connectivity.")
 
