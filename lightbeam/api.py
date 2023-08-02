@@ -41,6 +41,7 @@ class EdFiAPI:
         except Exception as e:
             self.logger.critical("could not parse response from {0} ({1})".format(self.config["base_url"], str(e)))
 
+        # Change urls to https
         for k,v in api_base["urls"].items():
             v = v.split(':')
             if v[0] == 'http':
@@ -181,6 +182,8 @@ class EdFiAPI:
                 raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
             openapi = response.json()
 
+
+            # Change endpoint to https
             for endpoint in openapi:
                 split_uri = endpoint["endpointUri"].split(':')
                 if split_uri[0] == 'http':
