@@ -162,7 +162,7 @@ lightbeam --version
 This tool includes several special features:
 
 ## Selectors
-Send only a subset of resources or descriptors in your `data_dir` using `-s` or `--selector``:
+Send only a subset of resources or descriptors in your `data_dir` using `-s` or `--selector`:
 ```bash
 lightbeam send -c path/to/config.yaml -s schools,students,studentSchoolAssociations
 ```
