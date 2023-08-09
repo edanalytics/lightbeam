@@ -103,9 +103,8 @@ class Sender:
             self.hashlog_data = hashlog.load(hashlog_file)
         
         self.metadata["resources"].update({endpoint: {}})
-
         self.lightbeam.reset_counters()
-        # async with self.lightbeam.api.get_retry_client() as client:
+
         # process each file
         data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
         tasks = []
