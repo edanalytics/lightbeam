@@ -1,5 +1,5 @@
-state_dir: ~/.lightbeam/
-data_dir: example/
+# state_dir: ~/.lightbeam/
+data_dir: ./
 namespace: ed-fi
 edfi_api:
   # base_url: https://api.ed-fi.org/v5.3/api
@@ -17,5 +17,5 @@ connection:
   backoff_factor: 1.5
   verify_ssl: False
 log_level: INFO
-# force_delete: True  
+force_delete: True  
 show_stacktrace: True
