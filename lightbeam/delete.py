@@ -109,10 +109,9 @@ class Deleter:
 
     # Deletes a single payload for a single endpoint
     async def do_delete(self, endpoint, file_name, params, line):
-        while True:
+        curr_token_version = int(str(self.lightbeam.token_version))
+        while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
-                curr_token_version = int(str(self.lightbeam.token_version))
-                
                 # we have to get the `id` for a particular resource by first searching for its natural keys
                 async with self.lightbeam.api.client.get(
                     util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),

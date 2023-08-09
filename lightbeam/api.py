@@ -320,7 +320,8 @@ class EdFiAPI:
 
         descriptor = descriptor_path.split('/')[1]
             
-        while True: # this is not great practice, but an effective way (along with the `berak` below) to achieve a do:while loop
+        curr_token_version = int(str(self.lightbeam.token_version))
+        while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 async with self.client.get(
                     util.url_join(self.config["data_url"], descriptor_path+"?limit="+str(limit)+"&offset="+str(offset)),

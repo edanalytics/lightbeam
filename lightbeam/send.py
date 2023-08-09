@@ -157,7 +157,7 @@ class Sender:
     # Posts a single data payload to a single endpoint
     async def do_post(self, endpoint, file_name, data, line, hash):
         curr_token_version = int(str(self.lightbeam.token_version))
-        while True: # this is not great practice, but an effective way (along with the `berak` below) to achieve a do:while loop
+        while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 async with self.lightbeam.api.client.post(
                     util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
