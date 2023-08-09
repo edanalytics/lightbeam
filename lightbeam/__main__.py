@@ -21,6 +21,7 @@ logger = logging.getLogger("lightbeam")
 logger.setLevel(logging.getLevelName('INFO'))
 logger.addHandler(handler)
 # logging.basicConfig(handlers=[ExitOnExceptionHandler()])
+lock = False
 
 def main(argv=None):
     if argv is None: argv = sys.argv
@@ -50,6 +51,10 @@ def main(argv=None):
     parser.add_argument("-s", "--selector",
         nargs='?',
         help='sepecify a subset of resources to process'
+        )
+    parser.add_argument("-e", "--exclude",
+        nargs='?',
+        help='sepecify a subset of resources to exclude from processing'
         )
     parser.add_argument("-p", "--params",
         type=str,
@@ -92,8 +97,8 @@ def main(argv=None):
             print(f"lightbeam, version {VERSION}")
         exit(0)
 
-    if args.command not in ['validate', 'send', 'validate+send', 'delete']:
-        logger.error("Please specify a command to run: `validate`, `send`, `validate+send`, or `delete`. (Try the -h flag for help.)")
+    if args.command not in ['validate', 'send', 'validate+send', 'delete', 'count']:
+        logger.error("Please specify a command to run: `validate`, `send`, `validate+send`, `count`, or `delete`. (Try the -h flag for help.)")
 
     if not args.config_file:
         for file in DEFAULT_CONFIG_FILES:
@@ -109,7 +114,8 @@ def main(argv=None):
     lb = Lightbeam(
         config_file=args.config_file,
         logger=logger,
-        selector=args.selector,
+        selector=args.selector or "*",
+        exclude=args.exclude or "",
         params=args.params,
         wipe=args.wipe,
         force=args.force,
@@ -122,6 +128,7 @@ def main(argv=None):
         logger.info("starting...")
         if args.command=='validate': lb.validator.validate()
         elif args.command=='send': lb.sender.send()
+        elif args.command=='count': lb.counter.count()
         elif args.command=='validate+send':
             lb.validator.validate()
             lb.sender.send()

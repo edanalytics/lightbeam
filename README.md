@@ -55,6 +55,8 @@ connection:
   backoff_factor: 1.5
   retry_statuses: [429, 500, 502, 503, 504]
   verify_ssl: True
+count:
+  separator: ,
 force_delete: True
 log_level: INFO
 show_stacktrace: True
@@ -77,6 +79,7 @@ show_stacktrace: True
   * (optional) The `backoff_factor` to use for the exponential backoff. The default is `1.5`.
   * (optional) The `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry. The default is `[429, 500, 501, 503, 504]`.
   * (optional) Whether to `verify_ssl`. The default is `True`. Set to `False` when working with `localhost` APIs or to live dangerously.
+* (optional) for [`lightbeam count`](#count), optionally change separator between `Records` and `Endpoint`. The default is a "tab" character.
 * (optional) Skip the interactive confirmation prompt (for programmatic use) when using the [`delete`](#delete) command. The default is `False` (prompt).
 * (optional) Specify a `log_level` for output. Possible values are
   - `ERROR`: only output errors like missing required sources, invalid references, invalid [YAML configuration](#yaml-configuration), etc.
@@ -89,6 +92,16 @@ show_stacktrace: True
 
 # Usage
 `lightbeam` recognizes several commands:
+
+## `count`
+```bash
+lightbeam count -c path/to/config.yaml
+```
+Prints to the console (or to your `--results-file`, if specified) a record count for each endpoint in your Ed-Fi API.
+* By default, resources *and descriptors* (all endpoints) are counted. You can change this by using [selectors](#selectors), such as `-e *Descriptors`.
+* Endpoint counts printed to the console (if you don't specify a `--results-file`) include only endpoints with more than zero records. Endpoint counts saved in a `--results-file` include all available endpoints, even those with zero records.
+* Whether printed to the console or a `--results-file`, output will include columns `Records` and `Endpoint` separated by a separator specified as `count.separator` in your [YAML configuration](#setup) (default is a "tab" character).
+
 
 ## `validate`
 ```bash
@@ -149,10 +162,19 @@ lightbeam --version
 This tool includes several special features:
 
 ## Selectors
-Send only a subset of resources or descriptors in your `data_dir` using a selector:
+Send only a subset of resources or descriptors in your `data_dir` using `-s` or `--selector``:
 ```bash
 lightbeam send -c path/to/config.yaml -s schools,students,studentSchoolAssociations
 ```
+or, similarly, exclude some resources or descriptors using `-e` or `--exclude`:
+```bash
+lightbeam send -c path/to/config.yaml -e *Descriptors
+```
+Selection and exclusion may be a single or comma-separated list of strings or a wildcards (beginning or ending with `*`). For example:
+```bash
+lightbeam send -c path/to/config.yaml -s student*,parent* -e *Associations
+```
+would process resources like `studentSchoolAttendanceEvents` and `parents`, but not `studentSchoolAssociations` or `studentParentAssociations`.
 
 ## Environment variable references
 In your [YAML configuration](#setup), you may reference environment variables with `${ENV_VAR}`. This can be useful for passing sensitive data like credentials to `lightbeam`, such as

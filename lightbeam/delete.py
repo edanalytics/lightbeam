@@ -28,8 +28,13 @@ class Deleter:
         # get token with which to send requests
         self.lightbeam.api.do_oauth()
 
+        # filter down to selected endpoints that actually have .jsonl in config.data_dir
+        endpoints = self.lightbeam.get_endpoints_with_data(self.lightbeam.endpoints)
+        if len(endpoints)==0:
+            self.logger.critical("`data_dir` {0} has no *.jsonl files".format(self.lightbeam.config["data_dir"]) + " for selected endpoints")
+        
         # process endpoints in reverse-dependency order, so we don't get dependency errors
-        endpoints = copy.deepcopy(self.lightbeam.endpoints)
+        endpoints = copy.deepcopy(endpoints)
         endpoints.reverse()
 
         for endpoint in endpoints:
@@ -53,71 +58,68 @@ class Deleter:
             self.hashlog_data = hashlog.load(hashlog_file)
         
         self.lightbeam.reset_counters()
-        # here we set up a smart retry client with exponential backoff and a connection pool
-        async with self.lightbeam.api.get_retry_client() as client:
-            data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
-            tasks = []
+        
+        data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
+        tasks = []
 
-            # determine the fields that uniquely define a record for this endpoint
-            params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
+        # determine the fields that uniquely define a record for this endpoint
+        params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
 
-            # process each file
-            counter = 0
-            for file_name in data_files:
-                with open(file_name) as file:
-                    # process each payload
-                    for line in file:
-                        counter += 1
-                        data = line.strip()
-                        # fill out the required fields from the data payload
-                        # (so we can search for matching records in the API)
-                        params = util.interpolate_params(params_structure, data)
+        # process each file
+        counter = 0
+        for file_name in data_files:
+            with open(file_name) as file:
+                # process each payload
+                for line in file:
+                    counter += 1
+                    data = line.strip()
+                    # fill out the required fields from the data payload
+                    # (so we can search for matching records in the API)
+                    params = util.interpolate_params(params_structure, data)
 
-                        # check if we've posted this data before
-                        hash = hashlog.get_hash(data)
-                        if self.lightbeam.track_state and hash in self.hashlog_data.keys():
-                            # check if the last post meets criteria for a delete
-                            if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
-                                # yes, we need to delete it; append to task queue
-                                tasks.append(asyncio.ensure_future(
-                                    self.do_delete(endpoint, file_name, params, client, counter)))
-                                
-                                # remove the payload from the hashlog
-                                del self.hashlog_data[hash]
-                            else:
-                                # no, do not delete
-                                self.lightbeam.num_skipped += 1
-                                continue
+                    # check if we've posted this data before
+                    hash = hashlog.get_hash(data)
+                    if self.lightbeam.track_state and hash in self.hashlog_data.keys():
+                        # check if the last post meets criteria for a delete
+                        if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
+                            # yes, we need to delete it; append to task queue
+                            tasks.append(asyncio.create_task(
+                                self.do_delete(endpoint, file_name, params, counter)))
+                            
+                            # remove the payload from the hashlog
+                            del self.hashlog_data[hash]
                         else:
-                            # new, never-before-seen payload! delete it (maybe this should be a warning instead?)
-                            tasks.append(asyncio.ensure_future(
-                                self.do_delete(endpoint, file_name, params, client, counter)))
+                            # no, do not delete
+                            self.lightbeam.num_skipped += 1
+                            continue
+                    else:
+                        # new, never-before-seen payload! delete it (maybe this should be a warning instead?)
+                        tasks.append(asyncio.create_task(
+                            self.do_delete(endpoint, file_name, params, counter)))
 
-                        if counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
-                            await self.lightbeam.do_tasks(tasks, counter)
-                            tasks = []
-                        
-                await self.lightbeam.do_tasks(tasks, counter)
+                    if counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
+                        await self.lightbeam.do_tasks(tasks, counter)
+                        tasks = []
+                    
+            if len(tasks)>0: await self.lightbeam.do_tasks(tasks, counter)
 
-            # any task may have updated the hashlog, so we need to re-save it out to disk
-            if self.lightbeam.track_state:
-                hashlog.save(hashlog_file, self.hashlog_data)
+        # any task may have updated the hashlog, so we need to re-save it out to disk
+        if self.lightbeam.track_state:
+            hashlog.save(hashlog_file, self.hashlog_data)
 
     # Deletes a single payload for a single endpoint
-    async def do_delete(self, endpoint, file_name, params, client, line):
-        try:
-            status = 401
-            while status==401:
-                # wait if another process has locked lightbeam while we refresh the oauth token:
-                while self.lightbeam.is_locked:
-                    print('waiting for lock...')
-                    await asyncio.sleep(1)
-            
+    async def do_delete(self, endpoint, file_name, params, line):
+        while True:
+            try:
+                curr_token_version = int(str(self.lightbeam.token_version))
+                
                 # we have to get the `id` for a particular resource by first searching for its natural keys
-                async with client.get(util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
-                                        params=params,
-                                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                                        headers=self.lightbeam.api.headers) as get_response:
+                async with self.lightbeam.api.client.get(
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    params=params,
+                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                    headers=self.lightbeam.api.headers
+                    ) as get_response:
                     body = await get_response.text()
                     status = get_response.status
                     if status!=401:
@@ -127,9 +129,11 @@ class Deleter:
                             if type(j)==list and len(j)==1:
                                 the_id = j[0]['id']
                                 # now we can delete by `id`
-                                async with client.delete(util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint, the_id),
-                                                            ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                                                            headers=self.lightbeam.api.headers) as delete_response:
+                                async with self.lightbeam.api.client.delete(
+                                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint, the_id),
+                                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                                    headers=self.lightbeam.api.headers
+                                    ) as delete_response:
                                     body = await delete_response.text()
                                     status = delete_response.status
                                     if status!=401:
@@ -141,8 +145,17 @@ class Deleter:
                                             message = str(status) + ": " + util.linearize(body)
                                             self.lightbeam.increment_status_reason(message)
                                             self.lightbeam.num_errors += 1
+                                        break # (out of while loop)
                                     else:
-                                        self.lightbeam.api.update_oauth()
+                                        # this could be broken out to a separate function call,
+                                        # but not doing so should help keep the critical section small
+                                        if self.lightbeam.token_version == curr_token_version:
+                                            self.lightbeam.lock.acquire()
+                                            self.lightbeam.api.update_oauth()
+                                            self.lightbeam.lock.release()
+                                        else:
+                                            await asyncio.sleep(1)
+                                        curr_token_version = int(str(self.lightbeam.token_version))
                                 
                             elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
                             elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
@@ -153,13 +166,24 @@ class Deleter:
                         if skip_reason:
                             self.lightbeam.num_skipped += 1
                             self.lightbeam.increment_status_reason(skip_reason)
-                    
+                            break # (out of while loop)
                     else:
-                        self.lightbeam.api.update_oauth()
+                        # this could be broken out to a separate function call,
+                        # but not doing so should help keep the critical section small
+                        if self.lightbeam.token_version == curr_token_version:
+                            self.lightbeam.lock.acquire()
+                            self.lightbeam.api.update_oauth()
+                            self.lightbeam.lock.release()
+                        else:
+                            await asyncio.sleep(1)
+                        curr_token_version = int(str(self.lightbeam.token_version))
                     
-        except Exception as e:
-            self.num_errors += 1
-            self.logger.exception(e, exc_info=self.config["show_stacktrace"])
-            self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
+            except RuntimeError as e:
+                await asyncio.sleep(1)
+            except Exception as e:
+                self.lightbeam.num_errors += 1
+                self.logger.exception(e, exc_info=self.config["show_stacktrace"])
+                self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
+                break
 
     

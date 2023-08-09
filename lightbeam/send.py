@@ -34,8 +34,13 @@ class Sender:
         # get token with which to send requests
         self.lightbeam.api.do_oauth()
 
+        # filter down to selected endpoints that actually have .jsonl in config.data_dir
+        endpoints = self.lightbeam.get_endpoints_with_data(self.lightbeam.endpoints)
+        if len(endpoints)==0:
+            self.logger.critical("`data_dir` {0} has no *.jsonl files".format(self.lightbeam.config["data_dir"]) + " for selected endpoints")
+        
         # send each endpoint
-        for endpoint in self.lightbeam.endpoints:
+        for endpoint in endpoints:
             self.logger.info("sending endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_send(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
@@ -100,71 +105,66 @@ class Sender:
         self.metadata["resources"].update({endpoint: {}})
 
         self.lightbeam.reset_counters()
-        # here we set up a smart retry client with exponential backoff and a connection pool
-        async with self.lightbeam.api.get_retry_client() as client:
-            # process each file
-            data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
-            tasks = []
-            total_counter = 0
-            for file_name in data_files:
-                with open(file_name) as file:
-                    # process each line
-                    for line in file:
-                        total_counter += 1
-                        data = line.strip()
-                        # compute hash of current row
-                        hash = hashlog.get_hash(data)
-                        # check if we've posted this data before
-                        if self.lightbeam.track_state and hash in self.hashlog_data.keys():
-                            # check if the last post meets criteria for a resend
-                            if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
-                                # yes, we need to (re)post it; append to task queue
-                                tasks.append(asyncio.ensure_future(
-                                    self.do_post(endpoint, file_name, data, client, total_counter, hash)))
-                            else:
-                                # no, do not (re)post
-                                self.lightbeam.num_skipped += 1
-                                continue
+        # async with self.lightbeam.api.get_retry_client() as client:
+        # process each file
+        data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
+        tasks = []
+        total_counter = 0
+        for file_name in data_files:
+            with open(file_name) as file:
+                # process each line
+                for line in file:
+                    total_counter += 1
+                    data = line.strip()
+                    # compute hash of current row
+                    hash = hashlog.get_hash(data)
+                    # check if we've posted this data before
+                    if self.lightbeam.track_state and hash in self.hashlog_data.keys():
+                        # check if the last post meets criteria for a resend
+                        if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
+                            # yes, we need to (re)post it; append to task queue
+                            tasks.append(asyncio.create_task(
+                                self.do_post(endpoint, file_name, data, total_counter, hash)))
                         else:
-                            # new, never-before-seen payload! append it to task queue
-                            tasks.append(asyncio.ensure_future(
-                                self.do_post(endpoint, file_name, data, client, total_counter, hash)))
+                            # no, do not (re)post
+                            self.lightbeam.num_skipped += 1
+                            continue
+                    else:
+                        # new, never-before-seen payload! append it to task queue
+                        tasks.append(asyncio.create_task(
+                            self.do_post(endpoint, file_name, data, total_counter, hash)))
+                
+                    if total_counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
+                        await self.lightbeam.do_tasks(tasks, total_counter)
+                        tasks = []
                     
-                        if total_counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
-                            await self.lightbeam.do_tasks(tasks, total_counter)
-                            tasks = []
-                        
-                    if self.lightbeam.num_skipped>0:
-                        self.logger.info("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.lightbeam.num_skipped, total_counter))
-                        
-                await self.lightbeam.do_tasks(tasks, total_counter)
+                if self.lightbeam.num_skipped>0:
+                    self.logger.info("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.lightbeam.num_skipped, total_counter))
+            if len(tasks)>0: await self.lightbeam.do_tasks(tasks, total_counter)
             
-            # any task may have updated the hashlog, so we need to re-save it out to disk
-            if self.lightbeam.track_state:
-                hashlog.save(hashlog_file, self.hashlog_data)
-            
-            # update metadata counts for this endpoint
-            self.metadata["resources"][endpoint].update({
-                "records_processed": total_counter,
-                "records_skipped": self.lightbeam.num_skipped,
-                "records_failed": self.lightbeam.num_errors
-            })
+        # any task may have updated the hashlog, so we need to re-save it out to disk
+        if self.lightbeam.track_state:
+            hashlog.save(hashlog_file, self.hashlog_data)
+        
+        # update metadata counts for this endpoint
+        self.metadata["resources"][endpoint].update({
+            "records_processed": total_counter,
+            "records_skipped": self.lightbeam.num_skipped,
+            "records_failed": self.lightbeam.num_errors
+        })
     
     
-    # Posts a single data payload to a single endpoint using the client
-    async def do_post(self, endpoint, file_name, data, client, line, hash):
-        status = 401
-        while status==401:
-            
-            # wait if another process has locked lightbeam while we refresh the oauth token:
-            while self.lightbeam.is_locked:
-                await asyncio.sleep(1)
-            
+    # Posts a single data payload to a single endpoint
+    async def do_post(self, endpoint, file_name, data, line, hash):
+        curr_token_version = int(str(self.lightbeam.token_version))
+        while True: # this is not great practice, but an effective way (along with the `berak` below) to achieve a do:while loop
             try:
-                async with client.post(util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
-                                        data=data,
-                                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                                        headers=self.lightbeam.api.headers) as response:
+                async with self.lightbeam.api.client.post(
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    data=data,
+                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                    headers=self.lightbeam.api.headers
+                    ) as response:
                     body = await response.text()
                     status = response.status
                     if status!=401:
@@ -196,17 +196,29 @@ class Sender:
                             if response.status==400:
                                 raise Exception(message)
                             else: self.lightbeam.num_errors += 1
-
                         
                         # update hashlog
                         if self.lightbeam.track_state:
                             self.hashlog_data[hash] = (round(time.time()), response.status)
+                        
+                        break # (out of while loop)
 
-                    else:
-                        self.lightbeam.api.update_oauth()
+                    else: # 401 status
+                        # this could be broken out to a separate function call,
+                        # but not doing so should help keep the critical section small
+                        if self.lightbeam.token_version == curr_token_version:
+                            self.lightbeam.lock.acquire()
+                            self.lightbeam.api.update_oauth()
+                            self.lightbeam.lock.release()
+                        else:
+                            await asyncio.sleep(1)
+                        curr_token_version = int(str(self.lightbeam.token_version))
         
+            except RuntimeError as e:
+                await asyncio.sleep(1)
             except Exception as e:
                 status = 400
                 self.lightbeam.num_errors += 1
                 self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
+                break
 

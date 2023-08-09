@@ -23,6 +23,7 @@ def merge_dicts(user, default):
 # Converts (for example) `LocalEducationAgencies` to `LocalEducationAgency`; `students` to `student`; etc.
 def singularize_endpoint(endpoint):
     if endpoint[-3:]=="ies": return endpoint[0:-3] + "y"
+    elif endpoint=="people": return "person"
     else: return endpoint[0:-1]
 
 # Takes a params structure and interpolates values from a (string) JSON payload

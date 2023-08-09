@@ -25,7 +25,7 @@ class EdFiAPI:
     
     # prepares this API object by fetching some of its metadata and
     # setting up data and objects for further use
-    def prepare(self, selector="*"):
+    def prepare(self):
         self.config = self.lightbeam.config["edfi_api"]
 
         # fetch/set up Ed-Fi API URLs
@@ -50,32 +50,63 @@ class EdFiAPI:
         all_endpoints = self.get_sorted_endpoints()
 
         # filter down to only selected endpoints
+        self.lightbeam.endpoints = self.apply_filters(all_endpoints)
+
+
+    def apply_filters(self, endpoints=[]):
         selected_endpoints = []
+        selector = self.lightbeam.selector
+        exclude = self.lightbeam.exclude
         if selector!="*" and selector!="":
             if "," in selector:
                 my_endpoints = selector.split(",")
                 to_add = []
                 for e in my_endpoints:
-                    if e[-1]=="*": to_add = [x for x in all_endpoints if x.startswith(e[0:-1])]
-                    elif e[0]=="*": to_add = [x for x in all_endpoints if x.endswith(e[1:])]
-                    else: to_add = [e]
+                    if e[-1]=="*":
+                        for x in [x for x in endpoints if x.startswith(e[0:-1])]:
+                            to_add.append(x)
+                    elif e[0]=="*":
+                        for x in [x for x in endpoints if x.endswith(e[1:])]:
+                            to_add.append(x)
+                    else: to_add.append(e)
                 for e in to_add: selected_endpoints.append(e)
-                selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
-                selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
+                # selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
             else:
-                if selector[-1]=="*": selected_endpoints = [x for x in all_endpoints if x.startswith(selector[0:-1])]
-                elif selector[0]=="*": selected_endpoints = [x for x in all_endpoints if x.endswith(selector[1:])]
+                if selector[-1]=="*": selected_endpoints = [x for x in endpoints if x.startswith(selector[0:-1])]
+                elif selector[0]=="*": selected_endpoints = [x for x in endpoints if x.endswith(selector[1:])]
                 else: selected_endpoints = [selector]
-        else: selected_endpoints = all_endpoints
-        unknown_endpoints = list(set(selected_endpoints).difference(all_endpoints))
+        else: selected_endpoints = endpoints
+
+        unknown_endpoints = list(set(selected_endpoints).difference(endpoints))
         # make sure all selectors resolve to an endpoint
         if unknown_endpoints:
             self.logger.critical("no match for selector(s) [{0}] to any endpoint in your API; check for typos?".format(", ".join(unknown_endpoints)))
+        
+        # remove excluded endpoints
+        to_exclude = []
+        if exclude!="":
+            if "," in exclude:
+                exclude_endpoints = exclude.split(",")
+                for e in exclude_endpoints:
+                    if e[-1]=="*":
+                        for x in [x for x in selected_endpoints if x.startswith(e[0:-1])]:
+                            to_exclude.append(x)
+                    elif e[0]=="*":
+                        for x in [x for x in selected_endpoints if x.endswith(e[1:])]:
+                            to_exclude.append(x)
+                    else: to_exclude.append(e)
+            else:
+                if exclude[-1]=="*": to_exclude = [x for x in selected_endpoints if x.startswith(exclude[0:-1])]
+                elif exclude[0]=="*": to_exclude = [x for x in selected_endpoints if x.endswith(exclude[1:])]
+                else: to_exclude = [exclude]
+
+        my_endpoints = [x for x in selected_endpoints if x not in to_exclude]
         # make sure we have some endpoints to process
-        if not selected_endpoints:
+        if not my_endpoints:
             self.logger.critical("selector filtering left no endpoints to process; check your selector for typos?")
 
-        self.lightbeam.endpoints = selected_endpoints
+        return my_endpoints
+
 
     # Returns a client object with exponential retry and other parameters per configs
     def get_retry_client(self):
@@ -84,7 +115,7 @@ class EdFiAPI:
             retry_options=ExponentialRetry(
                 attempts=self.lightbeam.config['connection']["num_retries"],
                 factor=self.lightbeam.config['connection']["backoff_factor"],
-                statuses=self.lightbeam.config['connection']["retry_statuses"]
+                statuses=self.lightbeam.config['connection']["retry_statuses"].append(401)
                 ),
             connector=aiohttp.connector.TCPConnector(limit=self.lightbeam.config['connection']["pool_size"])
             )
@@ -110,15 +141,15 @@ class EdFiAPI:
             self.logger.error(f"OAuth token could not be obtained; check your API credentials?")
 
     def update_oauth(self):
-        self.logger.debug("fetching new OAuth token due to a 400 response...")
-        self.lightbeam.is_locked = True
+        self.logger.debug("fetching new OAuth token due to a 401 response...")
+        self.lightbeam.token_version += 1
         self.do_oauth()
         self.headers = {
             "accept": "application/json",
             "Content-Type": "application/json",
             "authorization": "Bearer " + self.token
         }
-        self.lightbeam.is_locked = False
+
 
     # Constructs a base data URL (based on config params) to which we will post data
     def get_data_url(self):
@@ -160,7 +191,8 @@ class EdFiAPI:
 
         ordered_endpoints = []
         for e in data:
-            ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
+            if e["resource"].startswith("/" + self.lightbeam.config["namespace"] + "/"):
+                ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
         return ordered_endpoints
     
     # Loads the Swagger JSON from the Ed-Fi API
@@ -262,17 +294,13 @@ class EdFiAPI:
             self.logger.debug(f"fetching descriptor values...")
             tasks = []
             counter = 0
-            async with self.get_retry_client() as client:
-                for descriptor_path in self.descriptors_swagger["paths"]:
-                    descriptor_path = descriptor_path[1:] # remove leading /
-
-                    # SKIP descriptor_path WITH MORE THAN 2 SLASHES!!!
-                    if descriptor_path.count('/')>1: continue
-
-                    counter += 1
-                    tasks.append(asyncio.ensure_future(self.get_descriptor_values(client, descriptor_path)))
-                
-                await self.lightbeam.do_tasks(tasks, counter)
+            for descriptor_path in self.descriptors_swagger["paths"]:
+                descriptor_path = descriptor_path[1:] # remove leading /
+                if descriptor_path.count('/')>1: continue # SKIP descriptor_path WITH MORE THAN 2 SLASHES!!!
+                if "{id}" in descriptor_path: continue # SKIP descriptor_path containing "{id}"!!!
+                counter += 1
+                tasks.append(asyncio.create_task(self.get_descriptor_values(descriptor_path)))
+            await self.lightbeam.do_tasks(tasks, counter)
 
             # save
             if self.lightbeam.track_state:
@@ -284,7 +312,7 @@ class EdFiAPI:
                     writer.writerows(self.descriptor_values)
 
     # Fetches valid descriptor values for a specific descriptor endpoint
-    async def get_descriptor_values(self, client, descriptor_path):
+    async def get_descriptor_values(self, descriptor_path):
         self.descriptor_values = []
         fetch_next_page = True
         limit = self.DESCRIPTORS_PAGE_SIZE
@@ -292,20 +320,25 @@ class EdFiAPI:
 
         descriptor = descriptor_path.split('/')[1]
             
-        while fetch_next_page:
-            fetch_next_page = False # prevent infinite loop on any errors below
-
-            # wait if another process has locked lightbeam while we refresh the oauth token:
-            while self.lightbeam.is_locked:
-                await asyncio.sleep(1)
-            
+        while True: # this is not great practice, but an effective way (along with the `berak` below) to achieve a do:while loop
             try:
-                async with client.get(util.url_join(self.config["data_url"], descriptor_path+"?limit="+str(limit)+"&offset="+str(offset)),
-                                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                                        headers=self.lightbeam.api.headers) as response:
+                async with self.client.get(
+                    util.url_join(self.config["data_url"], descriptor_path+"?limit="+str(limit)+"&offset="+str(offset)),
+                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                    headers=self.lightbeam.api.headers
+                    ) as response:
                     body = await response.text()
                     status = str(response.status)
-                    if status=='401': self.lightbeam.api.update_oauth(client)
+                    if status=='401':
+                        # this could be broken out to a separate function call,
+                        # but not doing so should help keep the critical section small
+                        if self.lightbeam.token_version == curr_token_version:
+                            self.lightbeam.lock.acquire()
+                            self.lightbeam.api.update_oauth()
+                            self.lightbeam.lock.release()
+                        else:
+                            await asyncio.sleep(1)
+                        curr_token_version = int(str(self.lightbeam.token_version))
                     elif status not in ['200', '201']:
                         self.logger.warn(f"Unable to load descriptor values for {descriptor}... {status} API response.")
                     else:
@@ -316,13 +349,15 @@ class EdFiAPI:
                             else:
                                 for v in values:
                                     self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
-                                if len(values)==limit:
-                                    offset += limit
-                                    fetch_next_page = True
+                                if len(values)<limit:
+                                    break
+                                offset += limit
                         else:
                             self.logger.warn(f"Unable to load descriptor values for {descriptor}... API response was not JSON.")
 
 
+            except RuntimeError as e:
+                await asyncio.sleep(1)
             except Exception as e:
                 self.logger.critical(f"Unable to load descriptor values for {descriptor} from API... terminating. Check API connectivity.")
         
