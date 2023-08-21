@@ -97,8 +97,8 @@ def main(argv=None):
             print(f"lightbeam, version {VERSION}")
         exit(0)
 
-    if args.command not in ['validate', 'send', 'validate+send', 'delete', 'count']:
-        logger.error("Please specify a command to run: `validate`, `send`, `validate+send`, `count`, or `delete`. (Try the -h flag for help.)")
+    if args.command not in ['validate', 'send', 'validate+send', 'delete', 'count', 'fetch']:
+        logger.error("Please specify a command to run: `count`, `fetch`, `validate`, `send`, `validate+send`, or `delete`. (Try the -h flag for help.)")
 
     if not args.config_file:
         for file in DEFAULT_CONFIG_FILES:
@@ -126,9 +126,10 @@ def main(argv=None):
         )
     try:
         logger.info("starting...")
-        if args.command=='validate': lb.validator.validate()
+        if args.command=='count': lb.counter.count()
+        elif args.command=='fetch': lb.fetcher.fetch()
+        elif args.command=='validate': lb.validator.validate()
         elif args.command=='send': lb.sender.send()
-        elif args.command=='count': lb.counter.count()
         elif args.command=='validate+send':
             lb.validator.validate()
             lb.sender.send()

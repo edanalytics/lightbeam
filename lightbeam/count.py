@@ -40,14 +40,13 @@ class Counter:
 
         tasks = []
         counter = 0
-        async with self.lightbeam.api.get_retry_client() as client:
-            for endpoint in self.lightbeam.endpoints:
-                counter += 1
-                tasks.append(asyncio.create_task(self.get_record_count(client, endpoint)))
+        for endpoint in self.lightbeam.endpoints:
+            counter += 1
+            tasks.append(asyncio.create_task(self.get_record_count(endpoint)))
 
-            await self.lightbeam.do_tasks(tasks, counter)
+        await self.lightbeam.do_tasks(tasks, counter)
     
-    async def get_record_count(self, client, endpoint):
+    async def get_record_count(self, endpoint):
         try:
             # don't bother with handling 401 token expiry (like `send` and `delete` do)
             # since `count` should finish _very_ quickly - way before expiry
