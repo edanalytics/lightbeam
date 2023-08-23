@@ -2,9 +2,10 @@ import re
 import json
 
 # Strips newlines from a string
+# Replace single-quotes with backticks
 def linearize(string: str) -> str:
     exp = re.compile(r"\s+")
-    return exp.sub(" ", string).strip()
+    return exp.sub(" ", string).replace("'", "`").strip()
 
 def camel_case(s):
   s = re.sub(r"(_|-)+", " ", s).title().replace(" ", "")
