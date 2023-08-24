@@ -165,7 +165,7 @@ class Sender:
                                         data=data,
                                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
                                         headers=self.lightbeam.api.headers) as response:
-                    body = await response.text()
+                    body = await response.json()
                     status = response.status
                     if status!=401:
                         # update status_counts (for every-second status update)
@@ -174,7 +174,7 @@ class Sender:
                         
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
-                            message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
+                            message = str(response.status) + ": " + util.linearize(body.get("message"))
 
                             # update run metadata...
                             failed_statuses_dict = self.metadata["resources"][endpoint].get("failed_statuses", {})
