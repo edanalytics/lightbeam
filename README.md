@@ -102,6 +102,14 @@ Prints to the console (or to your `--results-file`, if specified) a record count
 * Endpoint counts printed to the console (if you don't specify a `--results-file`) include only endpoints with more than zero records. Endpoint counts saved in a `--results-file` include all available endpoints, even those with zero records.
 * Whether printed to the console or a `--results-file`, output will include columns `Records` and `Endpoint` separated by a separator specified as `count.separator` in your [YAML configuration](#setup) (default is a "tab" character).
 
+## `fetch`
+```bash
+lightbeam fetch -c path/to/config.yaml
+```
+Fetches the payloads of selected endpoints from your Ed-Fi API and saves them, each on their own line, to JSONL files in your `data_dir`.
+
+Optionally specify `--drop-keys id,_etag,_lastModified` or `-d id` to remove specific keys from every payload. This can be useful if you want to `fetch` data from one Ed-Fi API and then turn around and `send` it to another.
+
 
 ## `validate`
 ```bash

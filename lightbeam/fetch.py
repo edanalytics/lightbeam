@@ -12,9 +12,9 @@ class Fetcher:
     
     def fetch(self):
         self.lightbeam.results = []
-        asyncio.run(self.get_records())
+        asyncio.run(self.get_all_records())
     
-    async def get_records(self):
+    async def get_all_records(self, do_write=True):
         self.lightbeam.api.do_oauth()
         self.lightbeam.reset_counters()
         self.logger.debug(f"fetching records...")
@@ -25,22 +25,27 @@ class Fetcher:
         for endpoint in self.lightbeam.endpoints:
             # figure out how many (paginated) requests we must make
             tasks.append(asyncio.create_task(self.lightbeam.counter.get_record_count(endpoint)))
-            await self.lightbeam.do_tasks(tasks, counter)
-            num_records = self.lightbeam.results[0][1]
+        await self.lightbeam.do_tasks(tasks, counter)
+        
+        tasks = []
+        descriptor_counts = self.lightbeam.results
+        self.lightbeam.results = []
+        for endpoint in self.lightbeam.endpoints:
+            num_records = [x for x in descriptor_counts if x[0] == endpoint][0][1]
             num_pages = math.ceil(num_records / limit)
-            tasks = []
-            self.lightbeam.results = []
-
+            
             # do the requests
-            with open(os.path.join(self.lightbeam.config["data_dir"], endpoint + ".jsonl"), "w") as file_handle:
-                for p in range(0, num_pages):
-                    counter += 1
-                    tasks.append(asyncio.create_task(self.get_endpoint_records(endpoint, file_handle, limit, p*limit)))
+            file_handle = None
+            if do_write:
+                file_handle = open(os.path.join(self.lightbeam.config["data_dir"], endpoint + ".jsonl"), "w")
+            for p in range(0, num_pages):
+                counter += 1
+                tasks.append(asyncio.create_task(self.get_endpoint_records(endpoint, limit, p*limit, file_handle)))
 
-                await self.lightbeam.do_tasks(tasks, counter)
+        await self.lightbeam.do_tasks(tasks, counter)
     
     # Fetches valid descriptor values for a specific descriptor endpoint
-    async def get_endpoint_records(self, endpoint, file_handle, limit, offset):
+    async def get_endpoint_records(self, endpoint, limit, offset, file_handle=None):
         curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
@@ -70,7 +75,12 @@ class Fetcher:
                                 self.logger.warn(f"Unable to load records for {endpoint}... API JSON response was not a list of records.")
                             else:
                                 for v in values:
-                                    file_handle.write(json.dumps(v)+"\n")
+                                    # delete_keys (id, _etag, _lastModifiedDate)
+                                    for key in self.lightbeam.drop_keys.split(','):
+                                        if key in v.keys():
+                                            del v[key]
+                                    if file_handle: file_handle.write(json.dumps(v)+"\n")
+                                    self.lightbeam.results.append(v)
                                     self.lightbeam.increment_status_counts(status)
                                 break
                         else:

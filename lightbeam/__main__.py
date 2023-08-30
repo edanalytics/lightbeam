@@ -56,6 +56,10 @@ def main(argv=None):
         nargs='?',
         help='sepecify a subset of resources to exclude from processing'
         )
+    parser.add_argument("-d", "--drop-keys",
+        nargs='?',
+        help='sepecify a comma-delimited list of keys to remove from `fetch`ed payloads (like `id,_etag,_lastModifiedDate`)'
+        )
     parser.add_argument("-p", "--params",
         type=str,
         help='specify parameters as a JSON object via CLI (overrides environment variables)'
@@ -116,6 +120,7 @@ def main(argv=None):
         logger=logger,
         selector=args.selector or "*",
         exclude=args.exclude or "",
+        drop_keys=args.drop_keys or [],
         params=args.params,
         wipe=args.wipe,
         force=args.force,

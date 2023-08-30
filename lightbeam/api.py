@@ -291,17 +291,21 @@ class EdFiAPI:
                     self.descriptor_values.append(row)
         else:
             # load descriptor values from API
+            selector_backup = self.lightbeam.selector
+            exclude_backup = self.lightbeam.exclude
+            self.lightbeam.selector = "*Descriptors"
+            self.lightbeam.exclude = ""
             self.logger.debug(f"fetching descriptor values...")
-            tasks = []
-            counter = 0
-            for descriptor_path in self.descriptors_swagger["paths"]:
-                descriptor_path = descriptor_path[1:] # remove leading /
-                if descriptor_path.count('/')>1: continue # SKIP descriptor_path WITH MORE THAN 2 SLASHES!!!
-                if "{id}" in descriptor_path: continue # SKIP descriptor_path containing "{id}"!!!
-                counter += 1
-                tasks.append(asyncio.create_task(self.get_descriptor_values(descriptor_path)))
-            await self.lightbeam.do_tasks(tasks, counter)
-
+            all_endpoints = self.get_sorted_endpoints()
+            self.lightbeam.endpoints = self.apply_filters(all_endpoints)
+            await self.lightbeam.fetcher.get_all_records(do_write=False)
+            self.descriptor_values = []
+            for v in self.lightbeam.results:
+                descriptor = ""
+                for key in v.keys():
+                    if key.endswith("Id"): descriptor = key[0:-2]
+                self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
+            
             # save
             if self.lightbeam.track_state:
                 self.logger.debug(f"saving descriptor values to {cache_file}...")
@@ -311,58 +315,11 @@ class EdFiAPI:
                     writer.writerow(header)
                     writer.writerows(self.descriptor_values)
 
-    # Fetches valid descriptor values for a specific descriptor endpoint
-    async def get_descriptor_values(self, descriptor_path):
-        self.descriptor_values = []
-        fetch_next_page = True
-        limit = self.DESCRIPTORS_PAGE_SIZE
-        offset = 0
+            self.lightbeam.results = []
+            self.lightbeam.selector = selector_backup
+            self.lightbeam.exclude = exclude_backup
+            self.prepare()
 
-        descriptor = descriptor_path.split('/')[1]
-            
-        curr_token_version = int(str(self.lightbeam.token_version))
-        while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
-            try:
-                async with self.client.get(
-                    util.url_join(self.config["data_url"], descriptor_path+"?limit="+str(limit)+"&offset="+str(offset)),
-                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                    headers=self.lightbeam.api.headers
-                    ) as response:
-                    body = await response.text()
-                    status = str(response.status)
-                    if status=='401':
-                        # this could be broken out to a separate function call,
-                        # but not doing so should help keep the critical section small
-                        if self.lightbeam.token_version == curr_token_version:
-                            self.lightbeam.lock.acquire()
-                            self.lightbeam.api.update_oauth()
-                            self.lightbeam.lock.release()
-                        else:
-                            await asyncio.sleep(1)
-                        curr_token_version = int(str(self.lightbeam.token_version))
-                    elif status not in ['200', '201']:
-                        self.logger.warn(f"Unable to load descriptor values for {descriptor}... {status} API response.")
-                    else:
-                        if response.content_type == "application/json":
-                            values = json.loads(body)
-                            if type(values) != list:
-                                self.logger.warn(f"Unable to load descriptor values for {descriptor}... API JSON response was not a list of descrptor values.")
-                            else:
-                                for v in values:
-                                    self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
-                                if len(values)<limit:
-                                    break
-                                offset += limit
-                        else:
-                            self.logger.warn(f"Unable to load descriptor values for {descriptor}... API response was not JSON.")
-
-
-            except RuntimeError as e:
-                await asyncio.sleep(1)
-            except Exception as e:
-                self.logger.critical(f"Unable to load descriptor values for {descriptor} from API... terminating. Check API connectivity.")
-        
-        self.lightbeam.num_finished += 1
 
     # This function (and the helper below) walks through the swagger for a resource, following references,
     #  grabs all the required (nested) fields, and constructs a structure like this (for assessmentItem):
@@ -390,6 +347,3 @@ class EdFiAPI:
             elif swagger["definitions"][definition]["properties"][requiredProperty]["type"]!="array":
                 params[requiredProperty] = prefix + requiredProperty
         return params
-
-
-    
