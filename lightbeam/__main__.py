@@ -21,7 +21,6 @@ logger = logging.getLogger("lightbeam")
 logger.setLevel(logging.getLevelName('INFO'))
 logger.addHandler(handler)
 # logging.basicConfig(handlers=[ExitOnExceptionHandler()])
-lock = False
 
 def main(argv=None):
     if argv is None: argv = sys.argv

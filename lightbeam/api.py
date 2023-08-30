@@ -54,58 +54,62 @@ class EdFiAPI:
 
 
     def apply_filters(self, endpoints=[]):
-        selected_endpoints = []
-        selector = self.lightbeam.selector
-        exclude = self.lightbeam.exclude
-        if selector!="*" and selector!="":
-            if "," in selector:
-                my_endpoints = selector.split(",")
-                to_add = []
-                for e in my_endpoints:
-                    if e[-1]=="*":
-                        for x in [x for x in endpoints if x.startswith(e[0:-1])]:
-                            to_add.append(x)
-                    elif e[0]=="*":
-                        for x in [x for x in endpoints if x.endswith(e[1:])]:
-                            to_add.append(x)
-                    else: to_add.append(e)
-                for e in to_add: selected_endpoints.append(e)
-                # selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
-            else:
-                if selector[-1]=="*": selected_endpoints = [x for x in endpoints if x.startswith(selector[0:-1])]
-                elif selector[0]=="*": selected_endpoints = [x for x in endpoints if x.endswith(selector[1:])]
-                else: selected_endpoints = [selector]
-        else: selected_endpoints = endpoints
+        selected_endpoints = self.parse_endpoint_string(self.lightbeam.selector, endpoints=endpoints, all_on_empty=True)
 
-        unknown_endpoints = list(set(selected_endpoints).difference(endpoints))
         # make sure all selectors resolve to an endpoint
+        unknown_endpoints = list(set(selected_endpoints).difference(endpoints))
         if unknown_endpoints:
             self.logger.critical("no match for selector(s) [{0}] to any endpoint in your API; check for typos?".format(", ".join(unknown_endpoints)))
-        
-        # remove excluded endpoints
-        to_exclude = []
-        if exclude!="":
-            if "," in exclude:
-                exclude_endpoints = exclude.split(",")
-                for e in exclude_endpoints:
-                    if e[-1]=="*":
-                        for x in [x for x in selected_endpoints if x.startswith(e[0:-1])]:
-                            to_exclude.append(x)
-                    elif e[0]=="*":
-                        for x in [x for x in selected_endpoints if x.endswith(e[1:])]:
-                            to_exclude.append(x)
-                    else: to_exclude.append(e)
-            else:
-                if exclude[-1]=="*": to_exclude = [x for x in selected_endpoints if x.startswith(exclude[0:-1])]
-                elif exclude[0]=="*": to_exclude = [x for x in selected_endpoints if x.endswith(exclude[1:])]
-                else: to_exclude = [exclude]
 
-        my_endpoints = [x for x in selected_endpoints if x not in to_exclude]
+        excluded_endpoints = self.parse_endpoint_string(self.lightbeam.exclude, endpoints=selected_endpoints)
+        
         # make sure we have some endpoints to process
+        my_endpoints = list(set(selected_endpoints).difference(excluded_endpoints))
         if not my_endpoints:
             self.logger.critical("selector filtering left no endpoints to process; check your selector for typos?")
 
         return my_endpoints
+
+
+    @staticmethod
+    def parse_endpoint_string(full_endpoint_string: str, endpoints=[], all_on_empty=False):
+        """
+        Possible endpoint strings:
+        - "students"
+        - "students,schools"
+        - "student*"
+        - "student*,schools"
+        - "*Associations"
+        - "*Associations,schools"
+        """
+        # If no string is provided, return all or no endpoints, depending on use-case.
+        if not full_endpoint_string:
+            if all_on_empty:
+                return endpoints
+            else:
+                return []
+        
+        # Asterisk wildcards to all endpoints.
+        if full_endpoint_string == "*":
+            return endpoints
+        
+        # Otherwise, a comma-separated list of endpoints is expected.
+        return_endpoints = set()
+
+        for endpoint_string in full_endpoint_string.split(","):
+
+            if endpoint_string.startswith("*"):  # left wildcard: "*Associations"
+                return_endpoints.update(
+                    filter(lambda endpoint: endpoint.endswith(endpoint_string.lstrip("*")), endpoints)
+                )
+            elif endpoint_string.endswith("*"):  # right wildcard: "student*"
+                return_endpoints.update(
+                    filter(lambda endpoint: endpoint.startswith(endpoint_string.rstrip("*")), endpoints)
+                )
+            else:  # no wildcard: "students"
+                return_endpoints.add(endpoint_string)
+        
+        return list(return_endpoints)
 
 
     # Returns a client object with exponential retry and other parameters per configs
