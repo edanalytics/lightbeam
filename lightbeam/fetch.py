@@ -2,6 +2,7 @@ import os
 import math
 import json
 import asyncio
+from urllib.parse import urlencode
 from lightbeam import util
 
 class Fetcher:
@@ -28,10 +29,10 @@ class Fetcher:
         await self.lightbeam.do_tasks(tasks, counter)
         
         tasks = []
-        descriptor_counts = self.lightbeam.results
+        record_counts = self.lightbeam.results
         self.lightbeam.results = []
         for endpoint in self.lightbeam.endpoints:
-            num_records = [x for x in descriptor_counts if x[0] == endpoint][0][1]
+            num_records = [x for x in record_counts if x[0] == endpoint][0][1]
             num_pages = math.ceil(num_records / limit)
             
             # do the requests
@@ -44,13 +45,19 @@ class Fetcher:
 
         await self.lightbeam.do_tasks(tasks, counter)
     
-    # Fetches valid descriptor values for a specific descriptor endpoint
+    # Fetches records for a specific endpoint
     async def get_endpoint_records(self, endpoint, limit, offset, file_handle=None):
         curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
+                # construct the URL query params:
+                params = json.loads(self.lightbeam.query)
+                params.update({"limit": str(limit), offset: str(offset)})
+                params = urlencode(params)
+
+                # send GET request
                 async with self.lightbeam.api.client.get(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint+"?limit="+str(limit)+"&offset="+str(offset)),
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint + "?" + params),
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers
                     ) as response:

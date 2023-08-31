@@ -108,6 +108,12 @@ lightbeam fetch -c path/to/config.yaml
 ```
 Fetches the payloads of selected endpoints from your Ed-Fi API and saves them, each on their own line, to JSONL files in your `data_dir`.
 
+Optionally specify `--query '{"studentUniqueId": 12345}'` or `-q '{"key": "value"}'` to add query parameters to every GET request. This can be useful if you want to `fetch` data for just a specific record (and related data). For example:
+```bash
+lightbeam fetch -s students,studentEducationOrganizationAssociations,studentSchoolAssociations,studentSectionAssociations,studentSchoolAttendanceEvents,studentSectionAttendanceEvents,studentParentAssociations -q '{"studentUniqueId"
+:604825}' -d id,_etag,_lastModifiedDate
+```
+
 Optionally specify `--drop-keys id,_etag,_lastModified` or `-d id` to remove specific keys from every payload. This can be useful if you want to `fetch` data from one Ed-Fi API and then turn around and `send` it to another.
 
 

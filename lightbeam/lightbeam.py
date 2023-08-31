@@ -46,7 +46,7 @@ class Lightbeam:
     MAX_STATUS_REASONS_TO_DISPLAY = 10
     DATA_FILE_EXTENSIONS = ['json', 'jsonl', 'ndjson']
     
-    def __init__(self, config_file, logger=None, selector="*", exclude="", drop_keys=[], params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes="", results_file=""):
+    def __init__(self, config_file, logger=None, selector="*", exclude="", drop_keys="", query="{}", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes="", results_file=""):
         self.config_file = config_file
         self.logger = logger
         self.errors = 0
@@ -55,6 +55,7 @@ class Lightbeam:
         self.selector = selector
         self.exclude = exclude
         self.drop_keys = drop_keys
+        self.query = query
         self.wipe = wipe
         self.older_than=older_than
         self.newer_than=newer_than
