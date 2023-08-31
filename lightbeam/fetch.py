@@ -22,7 +22,7 @@ class Fetcher:
 
         tasks = []
         counter = 0
-        limit = 500 # self.DESCRIPTORS_PAGE_SIZE
+        limit = self.lightbeam.config["fetch"]["page_size"]
         for endpoint in self.lightbeam.endpoints:
             # figure out how many (paginated) requests we must make
             tasks.append(asyncio.create_task(self.lightbeam.counter.get_record_count(endpoint)))

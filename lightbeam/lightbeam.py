@@ -39,6 +39,9 @@ class Lightbeam:
         "count": {
             "separator": "\t"
         },
+        "fetch": {
+            "page_size": 100
+        },
         "log_level": "INFO",
         "show_stacktrace": False
     }

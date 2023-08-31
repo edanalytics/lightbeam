@@ -57,6 +57,8 @@ connection:
   verify_ssl: True
 count:
   separator: ,
+fetch:
+  page_size: 100
 force_delete: True
 log_level: INFO
 show_stacktrace: True
@@ -79,7 +81,8 @@ show_stacktrace: True
   * (optional) The `backoff_factor` to use for the exponential backoff. The default is `1.5`.
   * (optional) The `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry. The default is `[429, 500, 501, 503, 504]`.
   * (optional) Whether to `verify_ssl`. The default is `True`. Set to `False` when working with `localhost` APIs or to live dangerously.
-* (optional) for [`lightbeam count`](#count), optionally change separator between `Records` and `Endpoint`. The default is a "tab" character.
+* (optional) for [`lightbeam count`](#count), optionally change `separator`` between `Records` and `Endpoint`. The default is a "tab" character.
+* (optional) for [`lightbeam fetch`](#fetch), optionally specify the number of records (`page_size`) to GET at a time. The default is 100, but if you're trying to extract lots of data from an API increase this to the largest allowed (which depends on the API, but is often 500 or even 5000).
 * (optional) Skip the interactive confirmation prompt (for programmatic use) when using the [`delete`](#delete) command. The default is `False` (prompt).
 * (optional) Specify a `log_level` for output. Possible values are
   - `ERROR`: only output errors like missing required sources, invalid references, invalid [YAML configuration](#yaml-configuration), etc.

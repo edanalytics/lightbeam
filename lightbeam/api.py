@@ -16,7 +16,6 @@ class EdFiAPI:
 
     SWAGGER_CACHE_TTL = 2629800 # one month in seconds
     DESCRIPTORS_CACHE_TTL = 2629800 # one month in seconds
-    DESCRIPTORS_PAGE_SIZE = 100
     
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
