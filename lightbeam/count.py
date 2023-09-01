@@ -46,13 +46,14 @@ class Counter:
 
         await self.lightbeam.do_tasks(tasks, counter)
     
-    async def get_record_count(self, endpoint):
+    async def get_record_count(self, endpoint, params={}):
         try:
             # don't bother with handling 401 token expiry (like `send` and `delete` do)
             # since `count` should finish _very_ quickly - way before expiry
+            params.update({ "limit": "0", "totalCount": "true" })
             async with self.lightbeam.api.client.get(
                 util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
-                params={ "limit": "0", "totalCount": "true" },
+                params=params,
                 ssl=self.lightbeam.config["connection"]["verify_ssl"],
                 headers=self.lightbeam.api.headers
                 ) as response:

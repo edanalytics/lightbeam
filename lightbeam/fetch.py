@@ -23,9 +23,10 @@ class Fetcher:
         tasks = []
         counter = 0
         limit = self.lightbeam.config["fetch"]["page_size"]
+        params = json.loads(self.lightbeam.query)
         for endpoint in self.lightbeam.endpoints:
             # figure out how many (paginated) requests we must make
-            tasks.append(asyncio.create_task(self.lightbeam.counter.get_record_count(endpoint)))
+            tasks.append(asyncio.create_task(self.lightbeam.counter.get_record_count(endpoint, params)))
         await self.lightbeam.do_tasks(tasks, counter)
         
         tasks = []
@@ -53,11 +54,11 @@ class Fetcher:
                 # construct the URL query params:
                 params = json.loads(self.lightbeam.query)
                 params.update({"limit": str(limit), offset: str(offset)})
-                params = urlencode(params)
 
                 # send GET request
                 async with self.lightbeam.api.client.get(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint + "?" + params),
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    params=urlencode(params),
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers
                     ) as response:
@@ -83,6 +84,7 @@ class Fetcher:
                             else:
                                 for v in values:
                                     # delete_keys (id, _etag, _lastModifiedDate)
+                                    if endpoint=='students': print(v['id'])
                                     for key in self.lightbeam.drop_keys.split(','):
                                         if key in v.keys():
                                             del v[key]
