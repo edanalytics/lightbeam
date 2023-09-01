@@ -15,7 +15,7 @@ class Fetcher:
         self.lightbeam.results = []
         asyncio.run(self.get_all_records())
     
-    async def get_all_records(self, do_write=True):
+    async def get_all_records(self, do_write=True, log_status_counts=True):
         self.lightbeam.api.do_oauth()
         self.lightbeam.reset_counters()
         self.logger.debug(f"fetching records...")
@@ -27,7 +27,7 @@ class Fetcher:
         for endpoint in self.lightbeam.endpoints:
             # figure out how many (paginated) requests we must make
             tasks.append(asyncio.create_task(self.lightbeam.counter.get_record_count(endpoint, params)))
-        await self.lightbeam.do_tasks(tasks, counter)
+        await self.lightbeam.do_tasks(tasks, counter, log_status_counts=log_status_counts)
         
         tasks = []
         record_counts = self.lightbeam.results
@@ -44,7 +44,7 @@ class Fetcher:
                 counter += 1
                 tasks.append(asyncio.create_task(self.get_endpoint_records(endpoint, limit, p*limit, file_handle)))
 
-        await self.lightbeam.do_tasks(tasks, counter)
+        await self.lightbeam.do_tasks(tasks, counter, log_status_counts=log_status_counts)
     
     # Fetches records for a specific endpoint
     async def get_endpoint_records(self, endpoint, limit, offset, file_handle=None):

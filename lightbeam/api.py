@@ -67,7 +67,10 @@ class EdFiAPI:
         if not my_endpoints:
             self.logger.critical("selector filtering left no endpoints to process; check your selector for typos?")
 
-        return my_endpoints
+        # all the list(set()) stuff above can mess up the ordering of the endpoints (which must be in dependency-order)... this puts them back in dependency-order
+        final_endpoints = [x for x in endpoints if x in my_endpoints]
+        
+        return final_endpoints
 
 
     @staticmethod

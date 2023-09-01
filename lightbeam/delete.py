@@ -44,7 +44,6 @@ class Deleter:
                 self.logger.warn("data for {0} endpoint cannot be deleted (this is an Ed-Fi limitation); skipping".format(endpoint))
                 continue
 
-            self.logger.info("deleting data from endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_deletes(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
             self.logger.info("  (final status counts: {0})".format(self.lightbeam.status_counts))
@@ -65,6 +64,20 @@ class Deleter:
         # determine the fields that uniquely define a record for this endpoint
         params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
 
+        # for Descriptors, we need to fetch all Descriptor values first, then we can look up the ID for deletion
+        if endpoint.endswith('Descriptors'):
+            self.logger.info("fetching current descriptors from endpoint {0} ...".format(endpoint))
+            selector_backup = self.lightbeam.selector
+            exclude_backup = self.lightbeam.exclude
+            drop_keys_backup = self.lightbeam.drop_keys
+            self.lightbeam.selector = endpoint
+            self.lightbeam.exclude = ""
+            self.lightbeam.drop_keys = "_etag,_lastModifiedDate"
+            self.lightbeam.endpoints = [endpoint]
+            await self.lightbeam.fetcher.get_all_records(do_write=False, log_status_counts=False)
+            self.lightbeam.reset_counters()
+
+        self.logger.info("deleting data from endpoint {0} ...".format(endpoint))
         # process each file
         counter = 0
         for file_name in data_files:
@@ -103,6 +116,13 @@ class Deleter:
                     
             if len(tasks)>0: await self.lightbeam.do_tasks(tasks, counter)
 
+        if endpoint.endswith('Descriptors'):
+            self.lightbeam.results = []
+            self.lightbeam.selector = selector_backup
+            self.lightbeam.exclude = exclude_backup
+            self.lightbeam.drop_keys = drop_keys_backup
+            self.lightbeam.api.prepare()
+
         # any task may have updated the hashlog, so we need to re-save it out to disk
         if self.lightbeam.track_state:
             hashlog.save(hashlog_file, self.hashlog_data)
@@ -112,60 +132,89 @@ class Deleter:
         curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
-                # we have to get the `id` for a particular resource by first searching for its natural keys
-                async with self.lightbeam.api.client.get(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
-                    params=params,
+                if endpoint.endswith('Descriptors'):
+                    skip_reason = None
+                    matching_descriptors = [x for x in self.lightbeam.results if x['namespace']==params['namespace'] and x['codeValue']==params['codeValue']]
+                    if len(matching_descriptors)==1:
+                        the_id = matching_descriptors[0]['id']
+                        await self.do_delete_id(endpoint, the_id, file_name, line)
+                        break
+                    elif len(matching_descriptors)>1: skip_reason = "multiple matching payloads found in API"
+                    else: skip_reason = "payload not found in API"
+                    if skip_reason:
+                        self.lightbeam.num_skipped += 1
+                        self.lightbeam.increment_status_reason(skip_reason)
+                        break # (out of while loop)
+                else:
+
+                    # we have to get the `id` for a particular resource by first searching for its natural keys
+                    async with self.lightbeam.api.client.get(
+                        util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                        params=params,
+                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                        headers=self.lightbeam.api.headers
+                        ) as get_response:
+                        body = await get_response.text()
+                        status = get_response.status
+                        if status!=401:
+                            skip_reason = None
+                            if status in [200, 201]:
+                                j = json.loads(body)
+                                if type(j)==list and len(j)==1:
+                                    the_id = j[0]['id']
+                                    # now we can delete by `id`
+                                    await self.do_delete_id(endpoint, the_id, file_name, line)
+                                    break
+                                    
+                                elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
+                                elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
+                                else: skip_reason = "searching API for payload returned a response that is not a list"
+                            
+                            else: skip_reason = f"searching API for payload returned a {status} response"
+                            
+                            if skip_reason:
+                                self.lightbeam.num_skipped += 1
+                                self.lightbeam.increment_status_reason(skip_reason)
+                                break # (out of while loop)
+                        else:
+                            # this could be broken out to a separate function call,
+                            # but not doing so should help keep the critical section small
+                            if self.lightbeam.token_version == curr_token_version:
+                                self.lightbeam.lock.acquire()
+                                self.lightbeam.api.update_oauth()
+                                self.lightbeam.lock.release()
+                            else:
+                                await asyncio.sleep(1)
+                            curr_token_version = int(str(self.lightbeam.token_version))
+                    
+            except RuntimeError as e:
+                await asyncio.sleep(1)
+            except Exception as e:
+                self.lightbeam.num_errors += 1
+                self.logger.exception(e, exc_info=self.lightbeam.config["show_stacktrace"])
+                self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
+                break
+
+    async def do_delete_id(self, endpoint, id, file_name, line):
+        while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
+            try:
+                async with self.lightbeam.api.client.delete(
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint, id),
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers
-                    ) as get_response:
-                    body = await get_response.text()
-                    status = get_response.status
+                    ) as delete_response:
+                    body = await delete_response.text()
+                    status = delete_response.status
                     if status!=401:
-                        skip_reason = None
-                        if status in [200, 201]:
-                            j = json.loads(body)
-                            if type(j)==list and len(j)==1:
-                                the_id = j[0]['id']
-                                # now we can delete by `id`
-                                async with self.lightbeam.api.client.delete(
-                                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint, the_id),
-                                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                                    headers=self.lightbeam.api.headers
-                                    ) as delete_response:
-                                    body = await delete_response.text()
-                                    status = delete_response.status
-                                    if status!=401:
-                                        self.lightbeam.num_finished += 1
-                                        self.lightbeam.increment_status_counts(status)
-                                        if self.lightbeam.track_state:
-                                            del self.hashlog_data[hash]
-                                        if status not in [ 204 ]:
-                                            message = str(status) + ": " + util.linearize(body)
-                                            self.lightbeam.increment_status_reason(message)
-                                            self.lightbeam.num_errors += 1
-                                        break # (out of while loop)
-                                    else:
-                                        # this could be broken out to a separate function call,
-                                        # but not doing so should help keep the critical section small
-                                        if self.lightbeam.token_version == curr_token_version:
-                                            self.lightbeam.lock.acquire()
-                                            self.lightbeam.api.update_oauth()
-                                            self.lightbeam.lock.release()
-                                        else:
-                                            await asyncio.sleep(1)
-                                        curr_token_version = int(str(self.lightbeam.token_version))
-                                
-                            elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
-                            elif type(j)==list and len(j)>1: skip_reason = "multiple matching payloads found in API"
-                            else: skip_reason = "searching API for payload returned a response that is not a list"
-                        
-                        else: skip_reason = f"searching API for payload returned a {status} response"
-                        
-                        if skip_reason:
-                            self.lightbeam.num_skipped += 1
-                            self.lightbeam.increment_status_reason(skip_reason)
-                            break # (out of while loop)
+                        self.lightbeam.num_finished += 1
+                        self.lightbeam.increment_status_counts(status)
+                        if self.lightbeam.track_state:
+                            del self.hashlog_data[hash]
+                        if status not in [ 204 ]:
+                            message = str(status) + ": " + util.linearize(body)
+                            self.lightbeam.increment_status_reason(message)
+                            self.lightbeam.num_errors += 1
+                        break # (out of while loop)
                     else:
                         # this could be broken out to a separate function call,
                         # but not doing so should help keep the critical section small
@@ -176,13 +225,10 @@ class Deleter:
                         else:
                             await asyncio.sleep(1)
                         curr_token_version = int(str(self.lightbeam.token_version))
-                    
             except RuntimeError as e:
                 await asyncio.sleep(1)
             except Exception as e:
                 self.lightbeam.num_errors += 1
-                self.logger.exception(e, exc_info=self.config["show_stacktrace"])
+                self.logger.exception(e, exc_info=self.lightbeam.config["show_stacktrace"])
                 self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
                 break
-
-    

@@ -12,6 +12,9 @@ class Counter:
     def count(self):
         self.lightbeam.results = []
         asyncio.run(self.get_record_counts())
+        # sort results into dependency order:
+        sort_keys = self.lightbeam.api.get_sorted_endpoints()
+        self.lightbeam.results = sorted(self.lightbeam.results ,key=lambda x:sort_keys.index(x[0]))
 
         # output to results file
         if self.lightbeam.results_file:
@@ -44,7 +47,7 @@ class Counter:
             counter += 1
             tasks.append(asyncio.create_task(self.get_record_count(endpoint)))
 
-        await self.lightbeam.do_tasks(tasks, counter)
+        await self.lightbeam.do_tasks(tasks, counter, log_status_counts=False)
     
     async def get_record_count(self, endpoint, params={}):
         try:

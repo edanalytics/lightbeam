@@ -174,12 +174,13 @@ class Lightbeam:
     ###################### Async task-processing methods ######################
 
     # Waits for an entire queue of `counter` `tasks` to complete (asynchronously)
-    async def do_tasks(self, tasks, counter):
+    async def do_tasks(self, tasks, counter, log_status_counts=True):
         async with self.api.get_retry_client() as client:
             self.api.client = client
             self.lock = asyncio.Lock()
             await asyncio.wait(tasks)
-        self.logger.info("  (... status counts: {0}) ".format(str(self.status_counts)))
+        if log_status_counts:
+            self.logger.info("  (... status counts: {0}) ".format(str(self.status_counts)))
  
 
     ################ Status counting and error logging methods ################
