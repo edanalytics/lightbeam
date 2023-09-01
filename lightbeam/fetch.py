@@ -84,7 +84,6 @@ class Fetcher:
                             else:
                                 for v in values:
                                     # delete_keys (id, _etag, _lastModifiedDate)
-                                    if endpoint=='students': print(v['id'])
                                     for key in self.lightbeam.drop_keys.split(','):
                                         if key in v.keys():
                                             del v[key]
