@@ -304,7 +304,7 @@ class EdFiAPI:
             self.logger.debug(f"fetching descriptor values...")
             all_endpoints = self.get_sorted_endpoints()
             self.lightbeam.endpoints = self.apply_filters(all_endpoints)
-            await self.lightbeam.fetcher.get_all_records(do_write=False)
+            await self.lightbeam.fetcher.get_all_records(do_write=False, log_status_counts=False)
             self.descriptor_values = []
             for v in self.lightbeam.results:
                 descriptor = ""

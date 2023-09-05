@@ -53,7 +53,7 @@ class Fetcher:
             try:
                 # construct the URL query params:
                 params = json.loads(self.lightbeam.query)
-                params.update({"limit": str(limit), offset: str(offset)})
+                params.update({"limit": str(limit), "offset": str(offset)})
 
                 # send GET request
                 async with self.lightbeam.api.client.get(
@@ -88,7 +88,7 @@ class Fetcher:
                                         if key in v.keys():
                                             del v[key]
                                     if file_handle: file_handle.write(json.dumps(v)+"\n")
-                                    self.lightbeam.results.append(v)
+                                    else: self.lightbeam.results.append(v)
                                     self.lightbeam.increment_status_counts(status)
                                 break
                         else:

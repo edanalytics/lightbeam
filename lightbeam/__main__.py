@@ -143,6 +143,7 @@ def main(argv=None):
             lb.validator.validate()
             lb.sender.send()
         elif args.command=='delete': lb.deleter.delete()
+        elif args.command=='truncate': lb.truncator.truncate()
         lb.logger.info("done!")
     except Exception as e:
         logger.exception(e, exc_info=lb.config["show_stacktrace"])

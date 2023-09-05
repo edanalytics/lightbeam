@@ -16,6 +16,8 @@ connection:
   retry_statuses: [429, 500, 501, 503, 504]
   backoff_factor: 1.5
   verify_ssl: False
+fetch:
+  page_size: 500
 log_level: INFO
 force_delete: True  
 show_stacktrace: True
