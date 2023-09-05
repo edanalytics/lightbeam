@@ -165,9 +165,7 @@ Running the `delete` command will prompt you to type "yes" to confirm. This conf
 ```bash
 lightbeam truncate -c path/to/config.yaml
 ```
-Truncates (empties) your Ed-Fi API for selected endpoints, in dependency-order. USE WITH CAUTION. Note that you may not have permissions to delete all data, so this can result in various 403 or other API permissions errors.
-
-`truncate` works by fetching the `id` of every record for a given endpoint and then deleting all records by ID.
+Truncates (empties) your Ed-Fi API for selected endpoints, in dependency-order. **USE WITH CAUTION!** `truncate` works by fetching the `id` of every record for a given endpoint and then deleting all records by ID.
 
 `Truncate`ing a resource will also clear out the [saved state](#state) for it.
 
