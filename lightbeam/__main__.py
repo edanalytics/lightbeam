@@ -55,6 +55,10 @@ def main(argv=None):
         nargs='?',
         help='sepecify a subset of resources to exclude from processing'
         )
+    parser.add_argument("-k", "--keep-keys",
+        nargs='?',
+        help='sepecify a comma-delimited list of keys to keep from `fetch`ed payloads (if not specified, all keys are kept)'
+        )
     parser.add_argument("-d", "--drop-keys",
         nargs='?',
         help='sepecify a comma-delimited list of keys to remove from `fetch`ed payloads (like `id,_etag,_lastModifiedDate`)'
@@ -104,8 +108,8 @@ def main(argv=None):
             print(f"lightbeam, version {VERSION}")
         exit(0)
 
-    if args.command not in ['validate', 'send', 'validate+send', 'delete', 'count', 'fetch']:
-        logger.error("Please specify a command to run: `count`, `fetch`, `validate`, `send`, `validate+send`, or `delete`. (Try the -h flag for help.)")
+    if args.command not in ['validate', 'send', 'validate+send', 'delete', 'truncate', 'count', 'fetch']:
+        logger.error("Please specify a command to run: `count`, `fetch`, `validate`, `send`, `validate+send`, `delete`, or `truncate`. (Try the -h flag for help.)")
 
     if not args.config_file:
         for file in DEFAULT_CONFIG_FILES:
@@ -123,6 +127,7 @@ def main(argv=None):
         logger=logger,
         selector=args.selector or "*",
         exclude=args.exclude or "",
+        keep_keys=args.keep_keys or "",
         drop_keys=args.drop_keys or "",
         query=args.query or "{}",
         params=args.params,

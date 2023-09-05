@@ -116,6 +116,8 @@ Optionally specify `--query '{"studentUniqueId": 12345}'` or `-q '{"key": "value
 lightbeam fetch -s students,studentEducationOrganizationAssociations,studentSchoolAssociations,studentSectionAssociations,studentSchoolAttendanceEvents,studentSectionAttendanceEvents,courseTranscripts,grades,studentAcademicRecords,disciplineActions,studentDisciplineIncidentAssociations,studentDisciplineIncidentBehaviorAssociations,studentParentAssociations -q '{"studentUniqueId":123456}' -d id,_etag,_lastModifiedDate
 ```
 
+Optionally specify `--keep-keys id` or `-k id` to keep only specific keys from every payload. This can be useful to reduce the amount of data stored if you only need certain fields. It is used internally by `truncate` to only `fetch` the `id`s or payloads to then `delete` by `id`.
+
 Optionally specify `--drop-keys id,_etag,_lastModified` or `-d id` to remove specific keys from every payload. This can be useful if you want to `fetch` data from one Ed-Fi API and then turn around and `send` it to another.
 
 
@@ -155,9 +157,23 @@ Delete payloads by
 
 Payload hashes are also deleted from [saved state](#state). Endpoints are processed in reverse-dependency order to prevent delete failures due to data dependencies.
 
-Note that `student` resource payloads *cannot be deleted* since other resources may reference them. (This is an Ed-Fi API restriction.)
+Note that the default profile for most Ed-Fi API credentials prevents deletion of certain core resources (`student`, `school`, etc.), even if your credentials were used to create the records. If you get API errors trying to delete records, you may need "no further auth" API credentials.
 
 Running the `delete` command will prompt you to type "yes" to confirm. This confirmation prompt can be disabled (for programmatic use) by specifying `force_delete: True` in your YAML.
+
+## `truncate`
+```bash
+lightbeam truncate -c path/to/config.yaml
+```
+Truncates (empties) your Ed-Fi API for selected endpoints, in dependency-order. USE WITH CAUTION. Note that you may not have permissions to delete all data, so this can result in various 403 or other API permissions errors.
+
+`truncate` works by fetching the `id` of every record for a given endpoint and then deleting all records by ID.
+
+`Truncate`ing a resource will also clear out the [saved state](#state) for it.
+
+Note that the default profile for most Ed-Fi API credentials prevents deletion of certain core resources (`student`, `school`, etc.), even if your credentials were used to create the records. If you get API errors trying to delete records, you may need "no further auth" API credentials.
+
+Running the `truncate` command will prompt you to type "yes" to confirm. This confirmation prompt can be disabled (for programmatic use) by specifying `force_delete: True` in your YAML.
 
 ## Other options
 See a help message with

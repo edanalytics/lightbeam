@@ -13,9 +13,9 @@ class Fetcher:
     
     def fetch(self):
         self.lightbeam.results = []
-        asyncio.run(self.get_all_records())
+        asyncio.run(self.get_records())
     
-    async def get_all_records(self, do_write=True, log_status_counts=True):
+    async def get_records(self, do_write=True, log_status_counts=True):
         self.lightbeam.api.do_oauth()
         self.lightbeam.reset_counters()
         self.logger.debug(f"fetching records...")
@@ -38,13 +38,14 @@ class Fetcher:
             
             # do the requests
             file_handle = None
-            if do_write:
+            if do_write and num_records>0:
                 file_handle = open(os.path.join(self.lightbeam.config["data_dir"], endpoint + ".jsonl"), "w")
             for p in range(0, num_pages):
                 counter += 1
                 tasks.append(asyncio.create_task(self.get_endpoint_records(endpoint, limit, p*limit, file_handle)))
 
-        await self.lightbeam.do_tasks(tasks, counter, log_status_counts=log_status_counts)
+        if len(tasks)>0:
+            await self.lightbeam.do_tasks(tasks, counter, log_status_counts=log_status_counts)
     
     # Fetches records for a specific endpoint
     async def get_endpoint_records(self, endpoint, limit, offset, file_handle=None):
@@ -83,11 +84,16 @@ class Fetcher:
                                 self.logger.warn(f"Unable to load records for {endpoint}... API JSON response was not a list of records.")
                             else:
                                 for v in values:
+                                    if self.lightbeam.keep_keys!="":
+                                        row = {}
+                                        for key in self.lightbeam.keep_keys.split(','):
+                                            row.update({key: v[key]})
+                                    else: row = v
                                     # delete_keys (id, _etag, _lastModifiedDate)
                                     for key in self.lightbeam.drop_keys.split(','):
-                                        if key in v.keys():
-                                            del v[key]
-                                    if file_handle: file_handle.write(json.dumps(v)+"\n")
+                                        if key in row.keys():
+                                            del row[key]
+                                    if file_handle: file_handle.write(json.dumps(row)+"\n")
                                     else: self.lightbeam.results.append(v)
                                     self.lightbeam.increment_status_counts(status)
                                 break

@@ -195,7 +195,7 @@ class Deleter:
                 self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
                 break
 
-    async def do_delete_id(self, endpoint, id, file_name, line):
+    async def do_delete_id(self, endpoint, id, file_name=None, line=None):
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 async with self.lightbeam.api.client.delete(
@@ -230,5 +230,6 @@ class Deleter:
             except Exception as e:
                 self.lightbeam.num_errors += 1
                 self.logger.exception(e, exc_info=self.lightbeam.config["show_stacktrace"])
-                self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
+                if line and file_name:
+                    self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
                 break
