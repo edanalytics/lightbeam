@@ -51,8 +51,10 @@ class Truncator:
         
         selector_backup = self.lightbeam.selector
         exclude_backup = self.lightbeam.exclude
+        track_state_backup = self.lightbeam.track_state
         self.lightbeam.selector = endpoint
         self.lightbeam.keep_keys = "id"
+        self.lightbeam.track_state = False
         all_endpoints = self.lightbeam.api.get_sorted_endpoints()
         self.lightbeam.endpoints = self.lightbeam.api.apply_filters(all_endpoints)
 
@@ -78,13 +80,14 @@ class Truncator:
         if len(tasks)>0: await self.lightbeam.do_tasks(tasks, counter)
 
         # clear out the hashlog file, since those payloads aren't in Ed-Fi anymore
-        if self.lightbeam.track_state:
+        if track_state_backup:
             self.hashlog_data = {}
             hashlog.save(hashlog_file, self.hashlog_data)
 
         self.lightbeam.results = []
         self.lightbeam.selector = selector_backup
         self.lightbeam.exclude = exclude_backup
+        self.lightbeam.track_state = track_state_backup
         self.lightbeam.keep_keys = ""
         all_endpoints = self.lightbeam.api.get_sorted_endpoints()
         self.lightbeam.endpoints = self.lightbeam.api.apply_filters(all_endpoints)

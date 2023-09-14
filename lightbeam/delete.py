@@ -196,6 +196,7 @@ class Deleter:
                 break
 
     async def do_delete_id(self, endpoint, id, file_name=None, line=None):
+        curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 async with self.lightbeam.api.client.delete(
