@@ -74,7 +74,7 @@ class Deleter:
             self.lightbeam.exclude = ""
             self.lightbeam.drop_keys = "_etag,_lastModifiedDate"
             self.lightbeam.endpoints = [endpoint]
-            await self.lightbeam.fetcher.get_all_records(do_write=False, log_status_counts=False)
+            await self.lightbeam.fetcher.get_records(do_write=False, log_status_counts=False)
             self.lightbeam.reset_counters()
 
         self.logger.info("deleting data from endpoint {0} ...".format(endpoint))

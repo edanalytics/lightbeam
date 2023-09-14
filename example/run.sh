@@ -9,8 +9,8 @@
 # $ docker-compose -f ./compose/pgsql/compose-sandbox-env.yml --env-file .\.env up -d
 # to stand up a local Ed-Fi API.
 
-echo "counting elements in Ed-Fi API..."
-lightbeam count -e *Descriptors
+echo "counting schools and LEAs in Ed-Fi API..."
+lightbeam count -s localEducationAgencies,schools -e *Descriptors
 echo "  ... done!"
 
 echo "validating sample data..."
