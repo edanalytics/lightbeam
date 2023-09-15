@@ -174,7 +174,7 @@ class Sender:
                         
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
-                            message = str(response.status) + ": " + util.linearize(response.json().get("message"))
+                            message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
 
                             # update run metadata...
                             failed_statuses_dict = self.metadata["resources"][endpoint].get("failed_statuses", {})
