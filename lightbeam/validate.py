@@ -22,13 +22,14 @@ class Validator:
 
         self.lightbeam.reset_counters()
 
+        local_descriptors = self.load_local_descriptors()
         for endpoint in self.lightbeam.endpoints:
             if "Descriptor" in endpoint: swagger = self.lightbeam.api.descriptors_swagger
             else: swagger = self.lightbeam.api.resources_swagger
-            self.validate_endpoint(swagger, endpoint)
+            self.validate_endpoint(swagger, endpoint, local_descriptors)
 
     # Validates a single endpoint based on the Swagger docs
-    def validate_endpoint(self, swagger, endpoint):
+    def validate_endpoint(self, swagger, endpoint, local_descriptors=[]):
         definition = util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
         resource_schema = swagger["definitions"][definition]
 
@@ -67,7 +68,7 @@ class Validator:
                         continue
 
                     # check descriptor values are valid
-                    error_message = self.has_invalid_descriptor_values(instance)
+                    error_message = self.has_invalid_descriptor_values(instance, local_descriptors, path="")
                     if error_message != "":
                         if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                             self.logger.warning(f"... VALIDATION ERROR (line {counter}): " + error_message)
@@ -91,8 +92,21 @@ class Validator:
                         self.logger.critical(f"... and {num_others} others!")
                     self.logger.critical(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {counter} lines in {file}; see details above.")
     
+    def load_local_descriptors(self):
+        local_descriptors = []
+        all_endpoints = self.lightbeam.api.get_sorted_endpoints()
+        descriptor_endpoints = [x for x in all_endpoints if x.endswith("Descriptors")]
+        for descriptor in descriptor_endpoints:
+            data_files = self.lightbeam.get_data_files_for_endpoint(descriptor)
+            for file_name in data_files:
+                with open(file_name) as file:
+                    # process each line
+                    for line in file:
+                        local_descriptors.append(json.loads(line.strip()))
+        return local_descriptors
+    
     # Validates descriptor values for a single payload (returns an error message or empty string)
-    def has_invalid_descriptor_values(self, payload, path=""):
+    def has_invalid_descriptor_values(self, payload, local_descriptors, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict):
                 value = self.has_invalid_descriptor_values(payload[k], path+("." if path!="" else "")+k)
@@ -101,9 +115,13 @@ class Validator:
                 for i in range(0, len(payload[k])):
                     value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
-            elif isinstance(payload[k], str) and "Descriptor" in k:
+            elif isinstance(payload[k], str) and k.endswith("Descriptor"):
                 namespace = payload[k].split("#")[0]
                 codeValue = payload[k].split("#")[1]
+                # check f it's a local descriptor:
+                matching_local_descriptors = list(filter(lambda descriptor: type(descriptor)==dict and descriptor.get("namespace", "")==namespace and descriptor.get("codeValue", "")==codeValue, local_descriptors))
+                if len(matching_local_descriptors)>0: return ""
+                # check if it's a remote descriptor:
                 if not self.is_valid_descriptor_value(namespace, codeValue):
                     return payload[k] + f" is not a valid descriptor value for {k}" + (" (at " + path + ")" if path!="" else "")
         return ""

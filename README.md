@@ -55,6 +55,10 @@ connection:
   backoff_factor: 1.5
   retry_statuses: [429, 500, 502, 503, 504]
   verify_ssl: True
+count:
+  separator: ,
+fetch:
+  page_size: 100
 force_delete: True
 log_level: INFO
 show_stacktrace: True
@@ -77,6 +81,8 @@ show_stacktrace: True
   * (optional) The `backoff_factor` to use for the exponential backoff. The default is `1.5`.
   * (optional) The `retry_statuses`, that is, the HTTPS response codes to consider as failures to retry. The default is `[429, 500, 501, 503, 504]`.
   * (optional) Whether to `verify_ssl`. The default is `True`. Set to `False` when working with `localhost` APIs or to live dangerously.
+* (optional) for [`lightbeam count`](#count), optionally change the `separator` between `Records` and `Endpoint`. The default is a "tab" character.
+* (optional) for [`lightbeam fetch`](#fetch), optionally specify the number of records (`page_size`) to GET at a time. The default is 100, but if you're trying to extract lots of data from an API increase this to the largest allowed (which depends on the API, but is often 500 or even 5000).
 * (optional) Skip the interactive confirmation prompt (for programmatic use) when using the [`delete`](#delete) command. The default is `False` (prompt).
 * (optional) Specify a `log_level` for output. Possible values are
   - `ERROR`: only output errors like missing required sources, invalid references, invalid [YAML configuration](#yaml-configuration), etc.
@@ -90,18 +96,41 @@ show_stacktrace: True
 # Usage
 `lightbeam` recognizes several commands:
 
+## `count`
+```bash
+lightbeam count -c path/to/config.yaml
+```
+Prints to the console (or to your `--results-file`, if specified) a record count for each endpoint in your Ed-Fi API.
+* By default, resources *and descriptors* (all endpoints) are counted. You can change this by using [selectors](#selectors), such as `-e *Descriptors`.
+* Endpoint counts printed to the console (if you don't specify a `--results-file`) include only endpoints with more than zero records. Endpoint counts saved in a `--results-file` include all available endpoints, even those with zero records.
+* Whether printed to the console or a `--results-file`, output will include columns `Records` and `Endpoint` separated by a separator specified as `count.separator` in your [YAML configuration](#setup) (default is a "tab" character).
+
+## `fetch`
+```bash
+lightbeam fetch -c path/to/config.yaml
+```
+Fetches the payloads of selected endpoints from your Ed-Fi API and saves them, each on their own line, to JSONL files in your `data_dir`.
+
+Optionally specify `--query '{"studentUniqueId": 12345}'` or `-q '{"key": "value"}'` to add query parameters to every GET request. This can be useful if you want to `fetch` data for just a specific record (and related data). For example:
+```bash
+lightbeam fetch -s student* -e *Descriptors -q '{"studentUniqueId":12345}' -d id,_etag,_lastModifiedDate
+```
+
+Optionally specify `--keep-keys id` or `-k id` to keep only specific keys from every payload. This can be useful to reduce the amount of data stored if you only need certain fields. It is used internally by `truncate` to only `fetch` the `id`s or payloads to then `delete` by `id`.
+
+Optionally specify `--drop-keys id,_etag,_lastModified` or `-d id` to remove specific keys from every payload. This can be useful if you want to `fetch` data from one Ed-Fi API and then turn around and `send` it to another.
+
 ## `validate`
 ```bash
 lightbeam validate -c path/to/config.yaml
 ```
 You may `validate` your JSONL before transmitting it. This checks that the payloads
-* are valid JSON
-* conform to the structure described in the Swagger documents for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) fetched from your API
-* contain valid descriptor values (fetched from your API)
-* contain unique values for any natural key
+1. are valid JSON
+1. conform to the structure described in the Swagger documents for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) fetched from your API
+1. contain valid descriptor values (fetched from your API and/or from descriptor values in your JSONL files)
+1. contain unique values for any natural key
 
 This command will not find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
-
 
 ## `send`
 ```bash
@@ -121,14 +150,28 @@ lightbeam delete -c path/to/config.yaml
 ```
 Delete payloads by
 1. determing the natural key (set of required fields) for each endpoint
-1. iterating through your payloads and looking up each one via a `GET` request to the API filtering for the natural key values
+1. iterating through your JSONL payloads and looking up each one via a `GET` request to the API filtering for the natural key values
 1. if exactly one result is returned, `DELETE`ing it by `id`
 
 Payload hashes are also deleted from [saved state](#state). Endpoints are processed in reverse-dependency order to prevent delete failures due to data dependencies.
 
-Note that `student` resource payloads *cannot be deleted* since other resources may reference them. (This is an Ed-Fi API restriction.)
+Note that the default profile for most Ed-Fi API credentials prevents deletion of certain core resources (`student`, `school`, etc.), even if your credentials were used to create the records. If you get API errors trying to delete records, you may need "no further auth" API credentials.
 
 Running the `delete` command will prompt you to type "yes" to confirm. This confirmation prompt can be disabled (for programmatic use) by specifying `force_delete: True` in your YAML.
+
+## `truncate`
+```bash
+lightbeam truncate -c path/to/config.yaml
+```
+Truncates (empties) your Ed-Fi API for selected endpoints, in dependency-order. **USE WITH CAUTION!** `truncate` works by fetching the `id` of every record for a given endpoint and then deleting all records by ID.
+
+`Truncate`ing a resource will also clear out the [saved state](#state) for it.
+
+Note that the default profile for most Ed-Fi API credentials prevents deletion of certain core resources (`student`, `school`, etc.), even if your credentials were used to create the records. If you get API errors trying to delete records, you may need "no further auth" API credentials.
+
+Running the `truncate` command will prompt you to type "yes" to confirm. This confirmation prompt can be disabled (for programmatic use) by specifying `force_delete: True` in your YAML.
+
+`truncate` is a convenience command which should be used sparingly, as it can generate large numbers of `deletes` records and cause performance issues when pulling from `deletes` endpoints. If you want to wipe an entire Ed-Fi ODS, a better approach may be to drop and recreate the database (and re-send Descriptors and other default resources as needed).
 
 ## Other options
 See a help message with
@@ -144,15 +187,23 @@ lightbeam --version
 ```
 
 
-
 # Features
 This tool includes several special features:
 
 ## Selectors
-Send only a subset of resources or descriptors in your `data_dir` using a selector:
+Send only a subset of resources or descriptors in your `data_dir` using `-s` or `--selector`:
 ```bash
 lightbeam send -c path/to/config.yaml -s schools,students,studentSchoolAssociations
 ```
+or, similarly, exclude some resources or descriptors using `-e` or `--exclude`:
+```bash
+lightbeam send -c path/to/config.yaml -e *Descriptors
+```
+Selection and exclusion may be a single or comma-separated list of strings or a wildcards (beginning or ending with `*`). For example:
+```bash
+lightbeam send -c path/to/config.yaml -s student*,parent* -e *Associations,*Descriptors
+```
+would process resources like `studentSchoolAttendanceEvents` and `parents`, but not `studentSchoolAssociations`, `studentParentAssociations`, or any Descriptors.
 
 ## Environment variable references
 In your [YAML configuration](#setup), you may reference environment variables with `${ENV_VAR}`. This can be useful for passing sensitive data like credentials to `lightbeam`, such as
@@ -175,7 +226,7 @@ Command-line parameters override any environment variables of the same name.
 ## State
 This tool *maintains state about payloads previously dispatched to the Ed-Fi API* to avoid repeatedly resending the same payloads. This is done by maintaining a [pickled](https://docs.python.org/3/library/pickle.html) Python dictionary of payload hashes for each Ed-Fi resource and descriptor, together with a timestamp and HTTP status code of the last response. The files are located in the [config](#setup) file's `state_dir` and have names like `{resource}.dat` or `{descriptor}.dat`.
 
-By default, only new, never-before-seen payloads are sent.
+By default, only new, never-before-seen payloads are `sent` or `deleted`.
 
 You may choose to resend payloads last sent before *timestamp* using the `-t` or `--older-than` command-line flag:
 ```bash
@@ -201,7 +252,7 @@ lightbeam send -c path/to/lightbeam.yaml --force
 ```
 
 ## Cache
-To reduce runtime, `lightbeam` caches the resource and descriptor Swagger docs it fetches from your Ed-Fi API as well as the descriptor values for up to a month. This way, the data does not have to be re-loaded from your API on every run. The cached files are stored in the `cache` directory within your `state_dir`. You may run `lightbeam` with the `-w` or `--wipe` flag to clear the cache and force re-fetching the API metadata:
+To reduce runtime, `lightbeam` caches the resource and descriptor Swagger docs it fetches from your Ed-Fi API as well as the descriptor values for up to a month. This way, the data does not have to be re-loaded from your API on every run. The cached files are stored in the `cache` directory within your `state_dir`. You may run `lightbeam` with the `-w` or `--wipe` flag to clear this cached data and force re-fetching the API metadata:
 ```bash
 lightbeam send -c path/to/config.yaml -w
 lightbeam send -c path/to/config.yaml --wipe
@@ -276,9 +327,12 @@ Some details of the design of this tool are discussed below.
 ## Resource-dependency ordering
 JSONL files are sent to the Ed-Fi API in resource-dependency order, which avoids "missing reference" API errors when populating multiple endpoints.
 
+## Asynchronous requests
+`lightbeam` achieves exceptional performance by making _asynchronous_ requests to the Ed-Fi API - up to `connection.pool_size` (in your [YAML configuration](#setup)) at a time.
+
 
 # Performance & Limitations
-Tool performance depends on primarily on the performance of the Ed-Fi API, which in turn depends on the compute resources which back it. Typically the bottleneck is write performance to the database backend (SQL server or Postgres). If you use `lightbeam` to ingest a large amount of data into an Ed-Fi API (not the recommended use-case, by the way), consider temporarily scaling up your database backend.
+Tool performance depends on primarily on the performance of the Ed-Fi API, which in turn depends on the compute resources which back it. Typically the bottleneck is write performance to the database backend (SQL server or Postgres). If you use `lightbeam` to ingest a large amount of data into an Ed-Fi API (not a recommended use-case), consider temporarily scaling up your database backend.
 
 For reference, we have achieved throughput rates in excess of 100 requests/second against an Ed-Fi ODS & API running in Docker on a laptop.
 

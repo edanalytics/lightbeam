@@ -16,7 +16,6 @@ class EdFiAPI:
 
     SWAGGER_CACHE_TTL = 2629800 # one month in seconds
     DESCRIPTORS_CACHE_TTL = 2629800 # one month in seconds
-    DESCRIPTORS_PAGE_SIZE = 100
     
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
@@ -25,7 +24,7 @@ class EdFiAPI:
     
     # prepares this API object by fetching some of its metadata and
     # setting up data and objects for further use
-    def prepare(self, selector="*"):
+    def prepare(self):
         self.config = self.lightbeam.config["edfi_api"]
 
         # fetch/set up Ed-Fi API URLs
@@ -50,32 +49,70 @@ class EdFiAPI:
         all_endpoints = self.get_sorted_endpoints()
 
         # filter down to only selected endpoints
-        selected_endpoints = []
-        if selector!="*" and selector!="":
-            if "," in selector:
-                my_endpoints = selector.split(",")
-                to_add = []
-                for e in my_endpoints:
-                    if e[-1]=="*": to_add = [x for x in all_endpoints if x.startswith(e[0:-1])]
-                    elif e[0]=="*": to_add = [x for x in all_endpoints if x.endswith(e[1:])]
-                    else: to_add = [e]
-                for e in to_add: selected_endpoints.append(e)
-                selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
-                selected_endpoints = [e for e in all_endpoints if e in selected_endpoints]
-            else:
-                if selector[-1]=="*": selected_endpoints = [x for x in all_endpoints if x.startswith(selector[0:-1])]
-                elif selector[0]=="*": selected_endpoints = [x for x in all_endpoints if x.endswith(selector[1:])]
-                else: selected_endpoints = [selector]
-        else: selected_endpoints = all_endpoints
-        unknown_endpoints = list(set(selected_endpoints).difference(all_endpoints))
+        self.lightbeam.endpoints = self.apply_filters(all_endpoints)
+
+
+    def apply_filters(self, endpoints=[]):
+        selected_endpoints = self.parse_endpoint_string(self.lightbeam.selector, endpoints=endpoints, all_on_empty=True)
+
         # make sure all selectors resolve to an endpoint
+        unknown_endpoints = list(set(selected_endpoints).difference(endpoints))
         if unknown_endpoints:
             self.logger.critical("no match for selector(s) [{0}] to any endpoint in your API; check for typos?".format(", ".join(unknown_endpoints)))
+
+        excluded_endpoints = self.parse_endpoint_string(self.lightbeam.exclude, endpoints=selected_endpoints)
+        
         # make sure we have some endpoints to process
-        if not selected_endpoints:
+        my_endpoints = list(set(selected_endpoints).difference(excluded_endpoints))
+        if not my_endpoints:
             self.logger.critical("selector filtering left no endpoints to process; check your selector for typos?")
 
-        self.lightbeam.endpoints = selected_endpoints
+        # all the list(set()) stuff above can mess up the ordering of the endpoints (which must be in dependency-order)... this puts them back in dependency-order
+        final_endpoints = [x for x in endpoints if x in my_endpoints]
+        
+        return final_endpoints
+
+
+    @staticmethod
+    def parse_endpoint_string(full_endpoint_string: str, endpoints=[], all_on_empty=False):
+        """
+        Possible endpoint strings:
+        - "students"
+        - "students,schools"
+        - "student*"
+        - "student*,schools"
+        - "*Associations"
+        - "*Associations,schools"
+        """
+        # If no string is provided, return all or no endpoints, depending on use-case.
+        if not full_endpoint_string:
+            if all_on_empty:
+                return endpoints
+            else:
+                return []
+        
+        # Asterisk wildcards to all endpoints.
+        if full_endpoint_string == "*":
+            return endpoints
+        
+        # Otherwise, a comma-separated list of endpoints is expected.
+        return_endpoints = set()
+
+        for endpoint_string in full_endpoint_string.split(","):
+
+            if endpoint_string.startswith("*"):  # left wildcard: "*Associations"
+                return_endpoints.update(
+                    filter(lambda endpoint: endpoint.endswith(endpoint_string.lstrip("*")), endpoints)
+                )
+            elif endpoint_string.endswith("*"):  # right wildcard: "student*"
+                return_endpoints.update(
+                    filter(lambda endpoint: endpoint.startswith(endpoint_string.rstrip("*")), endpoints)
+                )
+            else:  # no wildcard: "students"
+                return_endpoints.add(endpoint_string)
+        
+        return list(return_endpoints)
+
 
     # Returns a client object with exponential retry and other parameters per configs
     def get_retry_client(self):
@@ -84,7 +121,7 @@ class EdFiAPI:
             retry_options=ExponentialRetry(
                 attempts=self.lightbeam.config['connection']["num_retries"],
                 factor=self.lightbeam.config['connection']["backoff_factor"],
-                statuses=self.lightbeam.config['connection']["retry_statuses"]
+                statuses=self.lightbeam.config['connection']["retry_statuses"].append(401)
                 ),
             connector=aiohttp.connector.TCPConnector(limit=self.lightbeam.config['connection']["pool_size"])
             )
@@ -110,15 +147,15 @@ class EdFiAPI:
             self.logger.error(f"OAuth token could not be obtained; check your API credentials?")
 
     def update_oauth(self):
-        self.logger.debug("fetching new OAuth token due to a 400 response...")
-        self.lightbeam.is_locked = True
+        self.logger.debug("fetching new OAuth token due to a 401 response...")
+        self.lightbeam.token_version += 1
         self.do_oauth()
         self.headers = {
             "accept": "application/json",
             "Content-Type": "application/json",
             "authorization": "Bearer " + self.token
         }
-        self.lightbeam.is_locked = False
+
 
     # Constructs a base data URL (based on config params) to which we will post data
     def get_data_url(self):
@@ -160,7 +197,8 @@ class EdFiAPI:
 
         ordered_endpoints = []
         for e in data:
-            ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
+            if e["resource"].startswith("/" + self.lightbeam.config["namespace"] + "/"):
+                ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
         return ordered_endpoints
     
     # Loads the Swagger JSON from the Ed-Fi API
@@ -259,21 +297,21 @@ class EdFiAPI:
                     self.descriptor_values.append(row)
         else:
             # load descriptor values from API
+            selector_backup = self.lightbeam.selector
+            exclude_backup = self.lightbeam.exclude
+            self.lightbeam.selector = "*Descriptors"
+            self.lightbeam.exclude = ""
             self.logger.debug(f"fetching descriptor values...")
-            tasks = []
-            counter = 0
-            async with self.get_retry_client() as client:
-                for descriptor_path in self.descriptors_swagger["paths"]:
-                    descriptor_path = descriptor_path[1:] # remove leading /
-
-                    # SKIP descriptor_path WITH MORE THAN 2 SLASHES!!!
-                    if descriptor_path.count('/')>1: continue
-
-                    counter += 1
-                    tasks.append(asyncio.ensure_future(self.get_descriptor_values(client, descriptor_path)))
-                
-                await self.lightbeam.do_tasks(tasks, counter)
-
+            all_endpoints = self.get_sorted_endpoints()
+            self.lightbeam.endpoints = self.apply_filters(all_endpoints)
+            await self.lightbeam.fetcher.get_records(do_write=False, log_status_counts=False)
+            self.descriptor_values = []
+            for v in self.lightbeam.results:
+                descriptor = ""
+                for key in v.keys():
+                    if key.endswith("Id"): descriptor = key[0:-2]
+                self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
+            
             # save
             if self.lightbeam.track_state:
                 self.logger.debug(f"saving descriptor values to {cache_file}...")
@@ -283,50 +321,11 @@ class EdFiAPI:
                     writer.writerow(header)
                     writer.writerows(self.descriptor_values)
 
-    # Fetches valid descriptor values for a specific descriptor endpoint
-    async def get_descriptor_values(self, client, descriptor_path):
-        self.descriptor_values = []
-        fetch_next_page = True
-        limit = self.DESCRIPTORS_PAGE_SIZE
-        offset = 0
+            self.lightbeam.results = []
+            self.lightbeam.selector = selector_backup
+            self.lightbeam.exclude = exclude_backup
+            self.prepare()
 
-        descriptor = descriptor_path.split('/')[1]
-            
-        while fetch_next_page:
-            fetch_next_page = False # prevent infinite loop on any errors below
-
-            # wait if another process has locked lightbeam while we refresh the oauth token:
-            while self.lightbeam.is_locked:
-                await asyncio.sleep(1)
-            
-            try:
-                async with client.get(util.url_join(self.config["data_url"], descriptor_path+"?limit="+str(limit)+"&offset="+str(offset)),
-                                        ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                                        headers=self.lightbeam.api.headers) as response:
-                    body = await response.text()
-                    status = str(response.status)
-                    if status=='401': self.lightbeam.api.update_oauth(client)
-                    elif status not in ['200', '201']:
-                        self.logger.warn(f"Unable to load descriptor values for {descriptor}... {status} API response.")
-                    else:
-                        if response.content_type == "application/json":
-                            values = json.loads(body)
-                            if type(values) != list:
-                                self.logger.warn(f"Unable to load descriptor values for {descriptor}... API JSON response was not a list of descrptor values.")
-                            else:
-                                for v in values:
-                                    self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
-                                if len(values)==limit:
-                                    offset += limit
-                                    fetch_next_page = True
-                        else:
-                            self.logger.warn(f"Unable to load descriptor values for {descriptor}... API response was not JSON.")
-
-
-            except Exception as e:
-                self.logger.critical(f"Unable to load descriptor values for {descriptor} from API... terminating. Check API connectivity.")
-        
-        self.lightbeam.num_finished += 1
 
     # This function (and the helper below) walks through the swagger for a resource, following references,
     #  grabs all the required (nested) fields, and constructs a structure like this (for assessmentItem):
@@ -354,6 +353,3 @@ class EdFiAPI:
             elif swagger["definitions"][definition]["properties"][requiredProperty]["type"]!="array":
                 params[requiredProperty] = prefix + requiredProperty
         return params
-
-
-    

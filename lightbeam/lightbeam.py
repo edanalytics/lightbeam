@@ -9,9 +9,12 @@ from yaml.loader import SafeLoader
 
 from lightbeam import util
 from lightbeam.api import EdFiAPI
+from lightbeam.count import Counter
+from lightbeam.fetch import Fetcher
 from lightbeam.validate import Validator
 from lightbeam.send import Sender
 from lightbeam.delete import Deleter
+from lightbeam.truncate import Truncator
 
 
 class Lightbeam:
@@ -34,30 +37,44 @@ class Lightbeam:
             "backoff_factor": 1.5,
             "retry_statuses": [429, 500, 501, 503, 504],
         },
+        "count": {
+            "separator": "\t"
+        },
+        "fetch": {
+            "page_size": 100
+        },
         "log_level": "INFO",
         "show_stacktrace": False
     }
-    MAX_TASK_QUEUE_SIZE = 1000
-    STATUS_UPDATE_WAIT = 5 # seconds
+    MAX_TASK_QUEUE_SIZE = 2000
     MAX_STATUS_REASONS_TO_DISPLAY = 10
     DATA_FILE_EXTENSIONS = ['json', 'jsonl', 'ndjson']
     
-    def __init__(self, config_file, logger=None, selector="*", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes="", results_file=""):
+    def __init__(self, config_file, logger=None, selector="*", exclude="", keep_keys="", drop_keys="", query="{}", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes="", results_file=""):
         self.config_file = config_file
         self.logger = logger
         self.errors = 0
         self.params = params
         self.force = force
+        self.selector = selector
+        self.exclude = exclude
+        self.keep_keys = keep_keys
+        self.drop_keys = drop_keys
+        self.query = query
         self.wipe = wipe
         self.older_than=older_than
         self.newer_than=newer_than
         self.resend_status_codes=resend_status_codes
         self.endpoints = []
+        self.results = []
+        self.counter = Counter(self)
+        self.fetcher = Fetcher(self)
         self.validator = Validator(self)
         self.sender = Sender(self)
         self.deleter = Deleter(self)
+        self.truncator = Truncator(self)
         self.api = EdFiAPI(self)
-        self.is_locked = False
+        self.token_version = 0        
         self.results_file = results_file
 
         # load params and/or env vars for config YAML interpolation
@@ -83,13 +100,8 @@ class Lightbeam:
         # turn off annoying SSL warnings (is this necessary? is this dangerous?)
         logging.captureWarnings(True)
 
-        self.api.prepare(selector)
+        self.api.prepare()
 
-        # filter down to selected endpoints that actually have .jsonl in config.data_dir
-        self.endpoints = self.get_endpoints_with_data(self.endpoints)
-        if len(self.endpoints)==0:
-            self.logger.critical("`data_dir` {0} has no *.jsonl files".format(self.config["data_dir"]) + (" for selected endpoints" if selector!="*" and selector!="" else ""))
-        
         # parse timestamps and/or status codes for state-based filtering
         if self.older_than!='': self.older_than = dateutil.parser.parse(self.older_than).timestamp()
         if self.newer_than!='': self.newer_than = dateutil.parser.parse(self.newer_than).timestamp()
@@ -165,30 +177,14 @@ class Lightbeam:
     ###################### Async task-processing methods ######################
 
     # Waits for an entire queue of `counter` `tasks` to complete (asynchronously)
-    async def do_tasks(self, tasks, counter):
-        # we also append a task to the queue that logs a status update every second
-        tasks.append(asyncio.ensure_future(self.periodic_update_until_done(counter)))
-
-        # now process the task queue (concurrently)
-        await self.gather_with_concurrency(self.config["connection"]["pool_size"], *tasks)
-
-    # Waits for an entire task queue to finish processing
-    async def gather_with_concurrency(self, n, *tasks):
-        semaphore = asyncio.Semaphore(n)
-        async def sem_task(task):
-            async with semaphore:
-                return await task
-        return await asyncio.gather(*(sem_task(task) for task in tasks), return_exceptions=True)
-
-    # Logs a status update every second
-    async def periodic_update_until_done(self, counter):
-        period_counter = 0
-        while self.num_finished + self.num_skipped < counter:
-            period_counter += 1
-            if self.status_counts and period_counter%self.STATUS_UPDATE_WAIT==0:
-                self.logger.info("  (... status counts: {0}) ".format(str(self.status_counts)))
-            await asyncio.sleep(1)
-    
+    async def do_tasks(self, tasks, counter, log_status_counts=True):
+        async with self.api.get_retry_client() as client:
+            self.api.client = client
+            self.lock = asyncio.Lock()
+            await asyncio.wait(tasks)
+        if log_status_counts:
+            self.logger.info("  (... status counts: {0}) ".format(str(self.status_counts)))
+ 
 
     ################ Status counting and error logging methods ################
 
