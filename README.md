@@ -67,7 +67,7 @@ show_stacktrace: True
 * (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location, as well as directory-based files like `{Resource}/*.jsonl` or `{Descriptor}/*.jsonl`. Files with `.ndjson` or simply `.json` extensions will also be processed. (More info at the [`ndjson` standard page](http://dataprotocols.org/ndjson/).)
 * (optional) Specify the `namespace` to use when accessing the Ed-Fi API. The default is `ed-fi` but others include `tpdm` or custom values. To send data to multiple namespaces, you must use a YAML configuration file and `lightbeam send` for each.
 * Specify the details of the `edfi_api` to which to connect including
-  * (optional) The `base_url` The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)).
+  * (optional) The `base_url` which serves a JSON object specifying the paths to data endpoints, Swagger, and dependencies. The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)), but the location varies depending on how Ed-Fi is deployed.
   * The `version` as one of `3` or `2` (`2` is currently unsupported).
   * (optional) The `mode` as one of `shared_instance`, `sandbox`, `district_specific`, `year_specific`, or `instance_year_specific`.
   * (required if `mode` is `year_specific` or `instance_year_specific`) The `year` used to build the resource URL. The default is the current year.

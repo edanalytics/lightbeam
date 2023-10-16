@@ -1,3 +1,11 @@
+### v0.1.0
+<details>
+<summary>Released 2023-10-16</summary>
+
+* feature: [adding `lightbeam count` and `lightbeam fetch`, with other bugfixes and improvements](https://github.com/edanalytics/lightbeam/pull/17)
+* bugfix: [typo in descriptor CSV header](https://github.com/edanalytics/lightbeam/pull/16)
+</details>
+
 ### v0.0.8
 <details>
 <summary>Released 2023-07-11</summary>
