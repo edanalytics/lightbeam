@@ -33,7 +33,10 @@ class Fetcher:
         record_counts = self.lightbeam.results
         self.lightbeam.results = []
         for endpoint in self.lightbeam.endpoints:
-            num_records = [x for x in record_counts if x[0] == endpoint][0][1]
+            try:
+                num_records = [x for x in record_counts if x[0] == endpoint][0][1]
+            except IndexError:
+                continue
             num_pages = math.ceil(num_records / limit)
             
             # do the requests
