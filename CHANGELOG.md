@@ -1,3 +1,11 @@
+### v0.1.1
+<details>
+<summary>Released 2024-02-16</summary>
+
+* bugfix: [replace single quotes in logging message with backticks](https://github.com/edanalytics/lightbeam/pull/18)
+* bugfix: [fetching resources without read permission](https://github.com/edanalytics/lightbeam/pull/20)
+</details>
+
 ### v0.1.0
 <details>
 <summary>Released 2023-10-16</summary>
