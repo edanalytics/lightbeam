@@ -120,6 +120,8 @@ Optionally specify `--keep-keys id` or `-k id` to keep only specific keys from e
 
 Optionally specify `--drop-keys id,_etag,_lastModified` or `-d id` to remove specific keys from every payload. This can be useful if you want to `fetch` data from one Ed-Fi API and then turn around and `send` it to another.
 
+Like [selectors](#selectors), `keep-keys` and `drop-keys` are comma-separated lists of values, each of which may begin or end with an asterisk (`*`) for wildcard matching. Example: `-d _*` would remove properties beginning with an underscore (`_`) character from any `fetch`ed payloads.
+
 ## `validate`
 ```bash
 lightbeam validate -c path/to/config.yaml
