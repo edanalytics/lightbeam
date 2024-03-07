@@ -116,9 +116,11 @@ Optionally specify `--query '{"studentUniqueId": 12345}'` or `-q '{"key": "value
 lightbeam fetch -s student* -e *Descriptors -q '{"studentUniqueId":12345}' -d id,_etag,_lastModifiedDate
 ```
 
-Optionally specify `--keep-keys id` or `-k id` to keep only specific keys from every payload. This can be useful to reduce the amount of data stored if you only need certain fields. It is used internally by `truncate` to only `fetch` the `id`s or payloads to then `delete` by `id`.
+Optionally specify `--keep-keys id` or `-k id` to keep only specific keys from every payload. This can be useful to reduce the amount of data stored if you only need certain fields. It is used internally by `truncate` to only `fetch` the `id`s or payloads to then `delete` by `id`. Like [selectors](#selectors), `keep-keys` is a comma-separated list of values, each of which may begin or end with an asterisk (`*`) for wildcard matching.
 
 Optionally specify `--drop-keys id,_etag,_lastModified` or `-d id` to remove specific keys from every payload. This can be useful if you want to `fetch` data from one Ed-Fi API and then turn around and `send` it to another.
+
+Like [selectors](#selectors), `keep-keys` and `drop-keys` are comma-separated lists of values, each of which may begin or end with an asterisk (`*`) for wildcard matching. Example: `-d _*` would remove properties beginning with an underscore (`_`) character from any `fetch`ed payloads.
 
 ## `validate`
 ```bash
