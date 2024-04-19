@@ -1,3 +1,12 @@
+### v0.1.2
+<details>
+<summary>Released 2024-04-19</summary>
+
+* feature: [Add ability for fetch `--keep-keys` and `--drop-keys` flags to allow wildcard matching](https://github.com/edanalytics/lightbeam/pull/23)
+* feature: [Update structured logging to be flatter, per recent team discussion](https://github.com/edanalytics/lightbeam/pull/24)
+* bugfix: [Support for `definitions`being renamed to `components.schemas` in Ed-Fi 7.1 Swagger](https://github.com/edanalytics/lightbeam/pull/25)
+</details>
+
 ### v0.1.1
 <details>
 <summary>Released 2024-02-16</summary>
