@@ -31,8 +31,13 @@ class Validator:
     # Validates a single endpoint based on the Swagger docs
     def validate_endpoint(self, swagger, endpoint, local_descriptors=[]):
         definition = util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
-        resource_schema = swagger["definitions"][definition]
-
+        if "definitions" in swagger.keys():
+            resource_schema = swagger["definitions"][definition]
+        elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
+            resource_schema = swagger["components"]["schemas"][definition]
+        else:
+            self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
+        
         resolver = RefResolver("test", swagger, swagger)
         validator = Draft4Validator(resource_schema, resolver=resolver)
         params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
