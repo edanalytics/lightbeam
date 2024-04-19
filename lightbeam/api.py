@@ -344,22 +344,22 @@ class EdFiAPI:
 
     def get_required_params_from_swagger(self, swagger, definition, prefix=""):
         params = {}
-        use_paths = False
+        use_definitions = False
         if "definitions" in swagger.keys():
             schema = swagger["definitions"][definition]
-        elif "paths" in swagger.keys():
-            schema = swagger["paths"][definition]
-            use_paths = True
+            use_definitions = True
+        elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
+            schema = swagger["components"]["schemas"][definition]
         else:
-            self.logger.critical(f"Swagger contains neither `definitions` nor `paths` - check that the Swagger is valid.")
+            self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         
         for requiredProperty in schema["required"]:
             if "$ref" in schema["properties"][requiredProperty].keys():
                 sub_definition = schema["properties"][requiredProperty]["$ref"]
-                if use_paths:
-                    sub_definition = sub_definition.replace("#/paths/", "")
-                else:
+                if use_definitions:
                     sub_definition = sub_definition.replace("#/definitions/", "")
+                else:
+                    sub_definition = sub_definition.replace("#/components/schemas/", "")
                 sub_params = self.get_required_params_from_swagger(swagger, sub_definition, prefix=requiredProperty+".")
                 for k,v in sub_params.items():
                     params[k] = v

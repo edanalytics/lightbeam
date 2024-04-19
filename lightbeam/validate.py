@@ -33,10 +33,10 @@ class Validator:
         definition = util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
         if "definitions" in swagger.keys():
             resource_schema = swagger["definitions"][definition]
-        elif "paths" in swagger.keys():
-            resource_schema = swagger["paths"][definition]
+        elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
+            resource_schema = swagger["components"]["schemas"][definition]
         else:
-            self.logger.critical(f"Swagger contains neither `definitions` nor `paths` - check that the Swagger is valid.")
+            self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         
         resolver = RefResolver("test", swagger, swagger)
         validator = Draft4Validator(resource_schema, resolver=resolver)
