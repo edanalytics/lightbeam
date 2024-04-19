@@ -112,10 +112,8 @@ class Sender:
         for file_name in data_files:
             with open(file_name) as file:
                 # process each line
-                line_counter = 0
-                for line in file:
+                for line_counter, line in enumerate(file):
                     total_counter += 1
-                    line_counter += 1
                     data = line.strip()
                     # compute hash of current row
                     hash = hashlog.get_hash(data)
