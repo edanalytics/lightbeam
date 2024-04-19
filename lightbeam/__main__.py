@@ -13,6 +13,17 @@ class ExitOnExceptionHandler(logging.StreamHandler):
 
 DEFAULT_CONFIG_FILES = ['lightbeam.yaml', 'lightbeam.yml']
 
+ALL_COMMANDS = [
+    "validate",
+    "send",
+    "validate+send",
+    "delete",
+    "truncate",
+    "count",
+    "fetch",
+]
+command_list = ', '.join(f"'{c}'" for c in ALL_COMMANDS)
+
 # Set up logging
 handler = ExitOnExceptionHandler()
 formatter = logging.Formatter("%(asctime)s.%(msecs)03d %(name)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
@@ -35,7 +46,7 @@ def main(argv=None):
     parser.add_argument('command',
         nargs="?",
         type=str,
-        help='the command to run: `validate`, `send`, `validate+send`, or `delete`'
+        help=f'the command to run: {command_list}'
         )
     parser.add_argument("-c", "--config-file",
         nargs="?",
@@ -108,8 +119,8 @@ def main(argv=None):
             print(f"lightbeam, version {VERSION}")
         exit(0)
 
-    if args.command not in ['validate', 'send', 'validate+send', 'delete', 'truncate', 'count', 'fetch']:
-        logger.error("Please specify a command to run: `count`, `fetch`, `validate`, `send`, `validate+send`, `delete`, or `truncate`. (Try the -h flag for help.)")
+    if args.command not in ALL_COMMANDS:
+        logger.error(f"Please specify a command to run: {command_list}. (Try the -h flag for help.)")
 
     if not args.config_file:
         for file in DEFAULT_CONFIG_FILES:
