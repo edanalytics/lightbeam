@@ -63,6 +63,11 @@ class Sender:
                 for idx, _ in enumerate(self.metadata["resources"][resource]["failures"]):
                     self.metadata["resources"][resource]["failures"][idx]["line_numbers"].sort()
         
+        
+        # helper function used below
+        def repl(m):
+            return re.sub(r"\s+", '', m.group(0))
+        
         ### Create structured output results_file if necessary
         if self.lightbeam.results_file:
             
@@ -72,8 +77,6 @@ class Sender:
             with open(self.lightbeam.results_file, 'w') as fp:
                 content = json.dumps(self.metadata, indent=4)
                 # failures.line_numbers are split each on their own line; here we remove those line breaks
-                def repl(m):
-                    return m.group(0).replace(' ', '').replace('\t', '').replace('\n', '')
                 content = re.sub(r'"line_numbers": \[(\d|,|\s|\n)*\]', repl, content)
                 fp.write(content)
 
@@ -175,21 +178,18 @@ class Sender:
                             message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
 
                             # update run metadata...
-                            status_code = response.status
-                            file = file_name
-                            line_number = line
                             failures = self.metadata["resources"][endpoint].get("failures", [])
                             do_append = True
                             for index, item in enumerate(failures):
-                                if item["status_code"]==status_code and item["message"]==message and item["file"]==file:
-                                    failures[index]["line_numbers"].append(line_number)
+                                if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
+                                    failures[index]["line_numbers"].append(line)
                                     failures[index]["count"] += 1
                                     do_append = False
                             if do_append:
                                 failure = {
-                                    'status_code': status_code,
+                                    'status_code': response.status,
                                     'message': message,
-                                    'file': file,
+                                    'file': file_name,
                                     'line_numbers': [line],
                                     'count': 1
                                 }
