@@ -55,17 +55,16 @@ def apply_selections(keys, keep, drop):
     # this will be the filtered set of keys
     final_keys = []
     # populate `final_keys` with `keys` that match `keep`
-    if len(keep)>0 and not (len(keep)==1 and keep[0]=="*"):
+    if keep and keep != ["*"]:
         for payload_key, keep_key in list(itertools.product(keys, keep)):
             if (keys_match(payload_key, keep_key)):
                 final_keys.append(payload_key)
     else: final_keys = keys
     # remove from `final_keys` keys that match `drop`
-    if len(drop)>0 and not (len(drop)==1 and drop[0]==""):
+    if drop and drop != [""]:
         for payload_key, drop_key in list(itertools.product(keys, drop)):
             if (keys_match(payload_key, drop_key)):
                 if payload_key in final_keys: final_keys.remove(payload_key)
-    # return result
     return final_keys
 
 # Compares a key like "stateAbbreviationDescriptors" with a (potentially wildcard) expression

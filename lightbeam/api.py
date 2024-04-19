@@ -61,7 +61,7 @@ class EdFiAPI:
             self.logger.critical("selector filtering left no endpoints to process; check your selector for typos?")
 
         # make sure all selectors resolve to an endpoint
-        unknown_endpoints = list(set(my_endpoints).difference(endpoints))
+        unknown_endpoints = set(my_endpoints).difference(endpoints)
         if unknown_endpoints:
             self.logger.critical("no match for selector(s) [{0}] to any endpoint in your API; check for typos?".format(", ".join(unknown_endpoints)))
 
