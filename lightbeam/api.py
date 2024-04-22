@@ -53,65 +53,22 @@ class EdFiAPI:
 
 
     def apply_filters(self, endpoints=[]):
-        selected_endpoints = self.parse_endpoint_string(self.lightbeam.selector, endpoints=endpoints, all_on_empty=True)
-
-        # make sure all selectors resolve to an endpoint
-        unknown_endpoints = list(set(selected_endpoints).difference(endpoints))
-        if unknown_endpoints:
-            self.logger.critical("no match for selector(s) [{0}] to any endpoint in your API; check for typos?".format(", ".join(unknown_endpoints)))
-
-        excluded_endpoints = self.parse_endpoint_string(self.lightbeam.exclude, endpoints=selected_endpoints)
+        # apply filters
+        my_endpoints = util.apply_selections(endpoints, self.lightbeam.selector, self.lightbeam.exclude)
         
         # make sure we have some endpoints to process
-        my_endpoints = list(set(selected_endpoints).difference(excluded_endpoints))
         if not my_endpoints:
             self.logger.critical("selector filtering left no endpoints to process; check your selector for typos?")
+
+        # make sure all selectors resolve to an endpoint
+        unknown_endpoints = set(my_endpoints).difference(endpoints)
+        if unknown_endpoints:
+            self.logger.critical("no match for selector(s) [{0}] to any endpoint in your API; check for typos?".format(", ".join(unknown_endpoints)))
 
         # all the list(set()) stuff above can mess up the ordering of the endpoints (which must be in dependency-order)... this puts them back in dependency-order
         final_endpoints = [x for x in endpoints if x in my_endpoints]
         
         return final_endpoints
-
-
-    @staticmethod
-    def parse_endpoint_string(full_endpoint_string: str, endpoints=[], all_on_empty=False):
-        """
-        Possible endpoint strings:
-        - "students"
-        - "students,schools"
-        - "student*"
-        - "student*,schools"
-        - "*Associations"
-        - "*Associations,schools"
-        """
-        # If no string is provided, return all or no endpoints, depending on use-case.
-        if not full_endpoint_string:
-            if all_on_empty:
-                return endpoints
-            else:
-                return []
-        
-        # Asterisk wildcards to all endpoints.
-        if full_endpoint_string == "*":
-            return endpoints
-        
-        # Otherwise, a comma-separated list of endpoints is expected.
-        return_endpoints = set()
-
-        for endpoint_string in full_endpoint_string.split(","):
-
-            if endpoint_string.startswith("*"):  # left wildcard: "*Associations"
-                return_endpoints.update(
-                    filter(lambda endpoint: endpoint.endswith(endpoint_string.lstrip("*")), endpoints)
-                )
-            elif endpoint_string.endswith("*"):  # right wildcard: "student*"
-                return_endpoints.update(
-                    filter(lambda endpoint: endpoint.startswith(endpoint_string.rstrip("*")), endpoints)
-                )
-            else:  # no wildcard: "students"
-                return_endpoints.add(endpoint_string)
-        
-        return list(return_endpoints)
 
 
     # Returns a client object with exponential retry and other parameters per configs
@@ -344,12 +301,25 @@ class EdFiAPI:
 
     def get_required_params_from_swagger(self, swagger, definition, prefix=""):
         params = {}
-        for requiredProperty in swagger["definitions"][definition]["required"]:
-            if "$ref" in swagger["definitions"][definition]["properties"][requiredProperty].keys():
-                sub_definition = swagger["definitions"][definition]["properties"][requiredProperty]["$ref"].replace("#/definitions/", "")
+        use_definitions = False
+        if "definitions" in swagger.keys():
+            schema = swagger["definitions"][definition]
+            use_definitions = True
+        elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
+            schema = swagger["components"]["schemas"][definition]
+        else:
+            self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
+        
+        for requiredProperty in schema["required"]:
+            if "$ref" in schema["properties"][requiredProperty].keys():
+                sub_definition = schema["properties"][requiredProperty]["$ref"]
+                if use_definitions:
+                    sub_definition = sub_definition.replace("#/definitions/", "")
+                else:
+                    sub_definition = sub_definition.replace("#/components/schemas/", "")
                 sub_params = self.get_required_params_from_swagger(swagger, sub_definition, prefix=requiredProperty+".")
                 for k,v in sub_params.items():
                     params[k] = v
-            elif swagger["definitions"][definition]["properties"][requiredProperty]["type"]!="array":
+            elif schema["properties"][requiredProperty]["type"]!="array":
                 params[requiredProperty] = prefix + requiredProperty
         return params

@@ -86,18 +86,14 @@ class Fetcher:
                             if type(values) != list:
                                 self.logger.warn(f"Unable to load records for {endpoint}... API JSON response was not a list of records.")
                             else:
+                                payload_keys = list(values[0].keys())
+                                final_keys = util.apply_selections(payload_keys, self.lightbeam.keep_keys, self.lightbeam.drop_keys)
+                                do_key_filtering = len(payload_keys) != len(final_keys)
                                 for v in values:
-                                    if self.lightbeam.keep_keys!="":
-                                        row = {}
-                                        for key in self.lightbeam.keep_keys.split(','):
-                                            row.update({key: v[key]})
+                                    if do_key_filtering: row = {k: v[k] for k in final_keys}
                                     else: row = v
-                                    # delete_keys (id, _etag, _lastModifiedDate)
-                                    for key in self.lightbeam.drop_keys.split(','):
-                                        if key in row.keys():
-                                            del row[key]
                                     if file_handle: file_handle.write(json.dumps(row)+"\n")
-                                    else: self.lightbeam.results.append(v)
+                                    else: self.lightbeam.results.append(row)
                                     self.lightbeam.increment_status_counts(status)
                                 break
                         else:

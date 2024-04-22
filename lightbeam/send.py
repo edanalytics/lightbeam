@@ -1,3 +1,4 @@
+import re
 import os
 import time
 import json
@@ -56,20 +57,16 @@ class Sender:
             "total_records_skipped": sum(item['records_skipped'] for item in self.metadata["resources"].values()),
             "total_records_failed": sum(item['records_failed'] for item in self.metadata["resources"].values())
         })
-        # total up counts by message and status
-        for resource, resource_metadata in self.metadata["resources"].items():
-            if "failed_statuses" in resource_metadata.keys():
-                for status, status_metadata in resource_metadata["failed_statuses"].items():
-                    total_num_errs = 0
-                    for message, message_metadata in status_metadata.items():
-                        for file, file_metadata in message_metadata["files"].items():
-                            num_errs = len(file_metadata["line_numbers"])
-                            file_metadata.update({
-                                "count": num_errs,
-                                "line_numbers": ",".join(str(x) for x in file_metadata["line_numbers"])
-                            })
-                            total_num_errs += num_errs
-                    status_metadata.update({"count": total_num_errs})
+        # sort failing line numbers
+        for resource in self.metadata["resources"].keys():
+            if "failures" in self.metadata["resources"][resource].keys():
+                for idx, _ in enumerate(self.metadata["resources"][resource]["failures"]):
+                    self.metadata["resources"][resource]["failures"][idx]["line_numbers"].sort()
+        
+        
+        # helper function used below
+        def repl(m):
+            return re.sub(r"\s+", '', m.group(0))
         
         ### Create structured output results_file if necessary
         if self.lightbeam.results_file:
@@ -78,7 +75,10 @@ class Sender:
             os.makedirs(os.path.dirname(self.lightbeam.results_file), exist_ok=True)
             
             with open(self.lightbeam.results_file, 'w') as fp:
-                fp.write(json.dumps(self.metadata, indent=4))
+                content = json.dumps(self.metadata, indent=4)
+                # failures.line_numbers are split each on their own line; here we remove those line breaks
+                content = re.sub(r'"line_numbers": \[(\d|,|\s|\n)*\]', repl, content)
+                fp.write(content)
 
         if self.metadata["total_records_processed"] == self.metadata["total_records_skipped"]:
             self.logger.info("all payloads skipped")
@@ -112,7 +112,7 @@ class Sender:
         for file_name in data_files:
             with open(file_name) as file:
                 # process each line
-                for line in file:
+                for line_counter, line in enumerate(file):
                     total_counter += 1
                     data = line.strip()
                     # compute hash of current row
@@ -123,7 +123,7 @@ class Sender:
                         if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
                             # yes, we need to (re)post it; append to task queue
                             tasks.append(asyncio.create_task(
-                                self.do_post(endpoint, file_name, data, total_counter, hash)))
+                                self.do_post(endpoint, file_name, data, line_counter, hash)))
                         else:
                             # no, do not (re)post
                             self.lightbeam.num_skipped += 1
@@ -131,7 +131,7 @@ class Sender:
                     else:
                         # new, never-before-seen payload! append it to task queue
                         tasks.append(asyncio.create_task(
-                            self.do_post(endpoint, file_name, data, total_counter, hash)))
+                            self.do_post(endpoint, file_name, data, line_counter, hash)))
                 
                     if total_counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
                         await self.lightbeam.do_tasks(tasks, total_counter)
@@ -176,19 +176,23 @@ class Sender:
                             message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
 
                             # update run metadata...
-                            failed_statuses_dict = self.metadata["resources"][endpoint].get("failed_statuses", {})
-                            if response.status not in failed_statuses_dict.keys():
-                                failed_statuses_dict.update({response.status: {}})
-                            if message not in failed_statuses_dict[response.status].keys():
-                                failed_statuses_dict[response.status].update({message: {}})
-                            if "files" not in failed_statuses_dict[response.status][message].keys():
-                                failed_statuses_dict[response.status][message].update({"files": {}})
-                            if file_name not in failed_statuses_dict[response.status][message]["files"].keys():
-                                failed_statuses_dict[response.status][message]["files"].update({file_name: {}})
-                            if "line_numbers" not in failed_statuses_dict[response.status][message]["files"][file_name].keys():
-                                failed_statuses_dict[response.status][message]["files"][file_name].update({"line_numbers": []})
-                            failed_statuses_dict[response.status][message]["files"][file_name]["line_numbers"].append(line)
-                            self.metadata["resources"][endpoint]["failed_statuses"] = failed_statuses_dict
+                            failures = self.metadata["resources"][endpoint].get("failures", [])
+                            do_append = True
+                            for index, item in enumerate(failures):
+                                if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
+                                    failures[index]["line_numbers"].append(line)
+                                    failures[index]["count"] += 1
+                                    do_append = False
+                            if do_append:
+                                failure = {
+                                    'status_code': response.status,
+                                    'message': message,
+                                    'file': file_name,
+                                    'line_numbers': [line],
+                                    'count': 1
+                                }
+                                failures.append(failure)
+                            self.metadata["resources"][endpoint]["failures"] = failures
 
                             # update output and counters
                             self.lightbeam.increment_status_reason(message)
