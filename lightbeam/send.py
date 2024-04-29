@@ -17,19 +17,19 @@ class Sender:
         self.logger = self.lightbeam.logger
         self.hashlog_data = {}
         self.start_timestamp = datetime.datetime.now()
-    
+
     # Sends all (selected) endpoints
     def send(self):
 
         # Initialize a dictionary for tracking run metadata (for structured output)
         self.metadata = {
-            "started_at": self.start_timestamp.isoformat(timespec='microseconds'),
+            "started_at": self.start_timestamp.isoformat(timespec="microseconds"),
             "working_dir": os.getcwd(),
             "config_file": self.lightbeam.config_file,
             "data_dir": self.lightbeam.config["data_dir"],
             "api_url": self.lightbeam.config["edfi_api"]["base_url"],
             "namespace": self.lightbeam.config["namespace"],
-            "resources": {}
+            "resources": {},
         }
 
         # get token with which to send requests
@@ -37,57 +37,85 @@ class Sender:
 
         # filter down to selected endpoints that actually have .jsonl in config.data_dir
         endpoints = self.lightbeam.get_endpoints_with_data(self.lightbeam.endpoints)
-        if len(endpoints)==0:
-            self.logger.critical("`data_dir` {0} has no *.jsonl files".format(self.lightbeam.config["data_dir"]) + " for selected endpoints")
-        
+        if len(endpoints) == 0:
+            self.logger.critical(
+                "`data_dir` {0} has no *.jsonl files".format(
+                    self.lightbeam.config["data_dir"]
+                )
+                + " for selected endpoints"
+            )
+
         # send each endpoint
         for endpoint in endpoints:
             self.logger.info("sending endpoint {0} ...".format(endpoint))
             asyncio.run(self.do_send(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
-            self.logger.info("  (final status counts: {0}) ".format(self.lightbeam.status_counts))
+            self.logger.info(
+                "  (final status counts: {0}) ".format(self.lightbeam.status_counts)
+            )
             self.lightbeam.log_status_reasons()
-        
+
         ### Create structured output results_file if necessary
         self.end_timestamp = datetime.datetime.now()
-        self.metadata.update({
-            "completed_at": self.end_timestamp.isoformat(timespec='microseconds'),
-            "runtime_sec": (self.end_timestamp - self.start_timestamp).total_seconds(),
-            "total_records_processed": sum(item['records_processed'] for item in self.metadata["resources"].values()),
-            "total_records_skipped": sum(item['records_skipped'] for item in self.metadata["resources"].values()),
-            "total_records_failed": sum(item['records_failed'] for item in self.metadata["resources"].values())
-        })
+        self.metadata.update(
+            {
+                "completed_at": self.end_timestamp.isoformat(timespec="microseconds"),
+                "runtime_sec": (
+                    self.end_timestamp - self.start_timestamp
+                ).total_seconds(),
+                "total_records_processed": sum(
+                    item["records_processed"]
+                    for item in self.metadata["resources"].values()
+                ),
+                "total_records_skipped": sum(
+                    item["records_skipped"]
+                    for item in self.metadata["resources"].values()
+                ),
+                "total_records_failed": sum(
+                    item["records_failed"]
+                    for item in self.metadata["resources"].values()
+                ),
+            }
+        )
         # sort failing line numbers
         for resource in self.metadata["resources"].keys():
             if "failures" in self.metadata["resources"][resource].keys():
-                for idx, _ in enumerate(self.metadata["resources"][resource]["failures"]):
-                    self.metadata["resources"][resource]["failures"][idx]["line_numbers"].sort()
-        
-        
+                for idx, _ in enumerate(
+                    self.metadata["resources"][resource]["failures"]
+                ):
+                    self.metadata["resources"][resource]["failures"][idx][
+                        "line_numbers"
+                    ].sort()
+
         # helper function used below
         def repl(m):
-            return re.sub(r"\s+", '', m.group(0))
-        
+            return re.sub(r"\s+", "", m.group(0))
+
         ### Create structured output results_file if necessary
         if self.lightbeam.results_file:
-            
+
             # create directory if not exists
             os.makedirs(os.path.dirname(self.lightbeam.results_file), exist_ok=True)
-            
-            with open(self.lightbeam.results_file, 'w') as fp:
+
+            with open(self.lightbeam.results_file, "w") as fp:
                 content = json.dumps(self.metadata, indent=4)
                 # failures.line_numbers are split each on their own line; here we remove those line breaks
                 content = re.sub(r'"line_numbers": \[(\d|,|\s|\n)*\]', repl, content)
                 fp.write(content)
 
-        if self.metadata["total_records_processed"] == self.metadata["total_records_skipped"]:
+        if (
+            self.metadata["total_records_processed"]
+            == self.metadata["total_records_skipped"]
+        ):
             self.logger.info("all payloads skipped")
-            exit(99) # signal to downstream tasks (in Airflow) all payloads skipped
-        
-        if self.metadata["total_records_processed"] == self.metadata["total_records_failed"]:
-            self.logger.info("all payloads failed")
-            exit(1) # signal to downstream tasks (in Airflow) all payloads failed
+            exit(99)  # signal to downstream tasks (in Airflow) all payloads skipped
 
+        if (
+            self.metadata["total_records_processed"]
+            == self.metadata["total_records_failed"]
+        ):
+            self.logger.info("all payloads failed")
+            exit(1)  # signal to downstream tasks (in Airflow) all payloads failed
 
     # Sends a single endpoint
     async def do_send(self, endpoint):
@@ -99,9 +127,11 @@ class Sender:
         # Using these hashlogs, we can do things like retry JSON that previously
         # failed, resend JSON older than a certain age, etc.
         if self.lightbeam.track_state:
-            hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
+            hashlog_file = os.path.join(
+                self.lightbeam.config["state_dir"], f"{endpoint}.dat"
+            )
             self.hashlog_data = hashlog.load(hashlog_file)
-        
+
         self.metadata["resources"].update({endpoint: {}})
         self.lightbeam.reset_counters()
 
@@ -120,93 +150,131 @@ class Sender:
                     # check if we've posted this data before
                     if self.lightbeam.track_state and hash in self.hashlog_data.keys():
                         # check if the last post meets criteria for a resend
-                        if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
+                        if self.lightbeam.meets_process_criteria(
+                            self.hashlog_data[hash]
+                        ):
                             # yes, we need to (re)post it; append to task queue
-                            tasks.append(asyncio.create_task(
-                                self.do_post(endpoint, file_name, data, line_counter, hash)))
+                            tasks.append(
+                                asyncio.create_task(
+                                    self.do_post(
+                                        endpoint, file_name, data, line_counter, hash
+                                    )
+                                )
+                            )
                         else:
                             # no, do not (re)post
                             self.lightbeam.num_skipped += 1
                             continue
                     else:
                         # new, never-before-seen payload! append it to task queue
-                        tasks.append(asyncio.create_task(
-                            self.do_post(endpoint, file_name, data, line_counter, hash)))
-                
-                    if total_counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
+                        tasks.append(
+                            asyncio.create_task(
+                                self.do_post(
+                                    endpoint, file_name, data, line_counter, hash
+                                )
+                            )
+                        )
+
+                    if total_counter % self.lightbeam.MAX_TASK_QUEUE_SIZE == 0:
                         await self.lightbeam.do_tasks(tasks, total_counter)
                         tasks = []
-                    
-                if self.lightbeam.num_skipped>0:
-                    self.logger.info("skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(self.lightbeam.num_skipped, total_counter))
-            if len(tasks)>0: await self.lightbeam.do_tasks(tasks, total_counter)
-            
+
+                if self.lightbeam.num_skipped > 0:
+                    self.logger.info(
+                        "skipped {0} of {1} payloads because they were previously processed and did not match any resend criteria".format(
+                            self.lightbeam.num_skipped, total_counter
+                        )
+                    )
+            if len(tasks) > 0:
+                await self.lightbeam.do_tasks(tasks, total_counter)
+
         # any task may have updated the hashlog, so we need to re-save it out to disk
         if self.lightbeam.track_state:
             hashlog.save(hashlog_file, self.hashlog_data)
-        
+
         # update metadata counts for this endpoint
-        self.metadata["resources"][endpoint].update({
-            "records_processed": total_counter,
-            "records_skipped": self.lightbeam.num_skipped,
-            "records_failed": self.lightbeam.num_errors
-        })
-    
-    
+        self.metadata["resources"][endpoint].update(
+            {
+                "records_processed": total_counter,
+                "records_skipped": self.lightbeam.num_skipped,
+                "records_failed": self.lightbeam.num_errors,
+            }
+        )
+
     # Posts a single data payload to a single endpoint
     async def do_post(self, endpoint, file_name, data, line, hash):
         curr_token_version = int(str(self.lightbeam.token_version))
-        while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
+        while (
+            True
+        ):  # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 async with self.lightbeam.api.client.post(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    util.url_join(
+                        self.lightbeam.api.config["data_url"],
+                        self.lightbeam.config["namespace"],
+                        endpoint,
+                    ),
                     data=data,
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                    headers=self.lightbeam.api.headers
-                    ) as response:
+                    headers=self.lightbeam.api.headers,
+                ) as response:
                     body = await response.text()
                     status = response.status
-                    if status!=401:
+                    if status != 401:
                         # update status_counts (for every-second status update)
                         self.lightbeam.increment_status_counts(status)
                         self.lightbeam.num_finished += 1
-                        
+
                         # warn about errors
-                        if response.status not in [ 200, 201 ]:
-                            message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
+                        if response.status not in [200, 201]:
+                            message = (
+                                str(response.status)
+                                + ": "
+                                + util.linearize(json.loads(body).get("message"))
+                            )
 
                             # update run metadata...
-                            failures = self.metadata["resources"][endpoint].get("failures", [])
+                            failures = self.metadata["resources"][endpoint].get(
+                                "failures", []
+                            )
                             do_append = True
                             for index, item in enumerate(failures):
-                                if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
+                                if (
+                                    item["status_code"] == response.status
+                                    and item["message"] == message
+                                    and item["file"] == file_name
+                                ):
                                     failures[index]["line_numbers"].append(line)
                                     failures[index]["count"] += 1
                                     do_append = False
                             if do_append:
                                 failure = {
-                                    'status_code': response.status,
-                                    'message': message,
-                                    'file': file_name,
-                                    'line_numbers': [line],
-                                    'count': 1
+                                    "status_code": response.status,
+                                    "message": message,
+                                    "file": file_name,
+                                    "line_numbers": [line],
+                                    "count": 1,
                                 }
                                 failures.append(failure)
                             self.metadata["resources"][endpoint]["failures"] = failures
 
                             # update output and counters
                             self.lightbeam.increment_status_reason(message)
-                            if response.status==400:
+                            if response.status == 400:
                                 raise Exception(message)
-                            else: self.lightbeam.num_errors += 1
-                        
+                            else:
+                                self.lightbeam.num_errors += 1
+
                         # update hashlog
                         if self.lightbeam.track_state:
-                            self.hashlog_data[hash] = (round(time.time()), response.status)
-                        
-                        break # (out of while loop)
+                            self.hashlog_data[hash] = (
+                                round(time.time()),
+                                response.status,
+                            )
 
-                    else: # 401 status
+                        break  # (out of while loop)
+
+                    else:  # 401 status
                         # this could be broken out to a separate function call,
                         # but not doing so should help keep the critical section small
                         if self.lightbeam.token_version == curr_token_version:
@@ -216,12 +284,13 @@ class Sender:
                         else:
                             await asyncio.sleep(1)
                         curr_token_version = int(str(self.lightbeam.token_version))
-        
+
             except RuntimeError as e:
                 await asyncio.sleep(1)
             except Exception as e:
                 status = 400
                 self.lightbeam.num_errors += 1
-                self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
+                self.logger.warn(
+                    "{0}  (at line {1} of {2} )".format(str(e), line, file_name)
+                )
                 break
-

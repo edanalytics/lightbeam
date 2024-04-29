@@ -14,14 +14,19 @@ class Truncator:
         self.lightbeam.reset_counters()
         self.logger = self.lightbeam.logger
         self.hashlog_data = {}
-    
+
     # Deletes all data in the Ed-Fi API for selected endpoints
     def truncate(self):
         # prompt to confirm this destructive operation
         if not self.lightbeam.config.get("force_delete", False):
-            if input('Type "yes" to confirm you want to TRUNCATE ALL DATA payloads for the selected endpoints? ')!="yes":
+            if (
+                input(
+                    'Type "yes" to confirm you want to TRUNCATE ALL DATA payloads for the selected endpoints? '
+                )
+                != "yes"
+            ):
                 exit('You did not type "yes" - exiting.')
-        
+
         # get token with which to send requests
         self.lightbeam.api.do_oauth()
 
@@ -38,17 +43,20 @@ class Truncator:
 
             asyncio.run(self.do_truncates(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
-            self.logger.info("  (final status counts: {0})".format(self.lightbeam.status_counts))
+            self.logger.info(
+                "  (final status counts: {0})".format(self.lightbeam.status_counts)
+            )
             self.lightbeam.log_status_reasons()
 
     # Deletes data matching payloads in config.data_dir for single endpoint
     async def do_truncates(self, endpoint):
         # load the hashlog, since we delete previously-seen payloads from it after deleting them
         if self.lightbeam.track_state:
-            hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
+            hashlog_file = os.path.join(
+                self.lightbeam.config["state_dir"], f"{endpoint}.dat"
+            )
             self.hashlog_data = hashlog.load(hashlog_file)
-        
-        
+
         selector_backup = self.lightbeam.selector
         exclude_backup = self.lightbeam.exclude
         track_state_backup = self.lightbeam.track_state
@@ -60,7 +68,9 @@ class Truncator:
 
         # this fetches the IDs of all payloads in the Ed-Fi API into self.lightbeam.results:
         self.lightbeam.results = []
-        await self.lightbeam.fetcher.get_records(do_write=False, log_status_counts=False)
+        await self.lightbeam.fetcher.get_records(
+            do_write=False, log_status_counts=False
+        )
 
         self.logger.info("TRUNCATING ALL DATA from endpoint {0} ...".format(endpoint))
         tasks = []
@@ -70,14 +80,17 @@ class Truncator:
         for result in self.lightbeam.results:
             counter += 1
             id = result["id"]
-            tasks.append(asyncio.create_task(self.lightbeam.deleter.do_delete_id(endpoint, id)))
+            tasks.append(
+                asyncio.create_task(self.lightbeam.deleter.do_delete_id(endpoint, id))
+            )
             # process task queue occasionally before if gets too big:
-            if counter%self.lightbeam.MAX_TASK_QUEUE_SIZE==0:
+            if counter % self.lightbeam.MAX_TASK_QUEUE_SIZE == 0:
                 await self.lightbeam.do_tasks(tasks, counter)
                 tasks = []
 
         # finish up any uncompleted tasks:
-        if len(tasks)>0: await self.lightbeam.do_tasks(tasks, counter)
+        if len(tasks) > 0:
+            await self.lightbeam.do_tasks(tasks, counter)
 
         # clear out the hashlog file, since those payloads aren't in Ed-Fi anymore
         if track_state_backup:
