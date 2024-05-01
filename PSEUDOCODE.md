@@ -157,6 +157,24 @@ results = count()
 write(results)
 ```
 
+### Potential Ed-Fi API client translation
+
+```python
+api = EdFiClient(...)
+
+def count():
+    results = {}
+    for endpoint in SELECTED_ENDPOINTS:
+        # How cleanly do endpoints map to resources?
+        resource = api.resource(endpoint)
+        results[endpoint] = resource.get_total_count()
+
+    return results
+
+results = count()
+write(results)
+```
+
 **`fetch`**
 
 GETs data from the ODS. Can be filtered to keep or drop specific keys.
