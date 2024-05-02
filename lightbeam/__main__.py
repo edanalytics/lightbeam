@@ -13,6 +13,8 @@ class ExitOnExceptionHandler(logging.StreamHandler):
 
 DEFAULT_CONFIG_FILES = ['lightbeam.yaml', 'lightbeam.yml']
 
+# use a dictionary here so that command strings can be accessed with a lookup.
+#   This helps enforce usage of this structure
 ALL_COMMANDS = {
    "validate": "validate",
    "send": "send",
