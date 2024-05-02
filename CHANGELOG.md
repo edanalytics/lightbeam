@@ -1,3 +1,9 @@
+### Unreleased
+<details>
+
+* bugfix: [Ensure command list in help menu and log output is always consistent](https://github.com/edanalytics/lightbeam/pull/27)
+</details>
+
 ### v0.1.2
 <details>
 <summary>Released 2024-04-19</summary>
