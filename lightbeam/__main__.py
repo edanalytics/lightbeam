@@ -13,16 +13,16 @@ class ExitOnExceptionHandler(logging.StreamHandler):
 
 DEFAULT_CONFIG_FILES = ['lightbeam.yaml', 'lightbeam.yml']
 
-ALL_COMMANDS = [
-    "validate",
-    "send",
-    "validate+send",
-    "delete",
-    "truncate",
-    "count",
-    "fetch",
-]
-command_list = ', '.join(f"'{c}'" for c in ALL_COMMANDS)
+ALL_COMMANDS = {
+   "validate": "validate",
+   "send": "send",
+   "validate+send": "validate+send",
+   "delete": "delete",
+   "truncate": "truncate",
+   "count": "count",
+   "fetch": "fetch",
+}
+command_list = ', '.join(f"'{c}'" for c in ALL_COMMANDS.values())
 
 # Set up logging
 handler = ExitOnExceptionHandler()
@@ -109,7 +109,18 @@ def main(argv=None):
 
     defaults = { "selector":"*", "params": "", "older_than": "", "newer_than": "", "resend_status_codes": "", "results_file": "" }
     parser.set_defaults(**defaults)
-    args, remaining_argv = parser.parse_known_args()
+    args, unknown_args = parser.parse_known_args()
+    if len(unknown_args) > 0:
+        unknown_args_str = ', '.join(f"`{c}`" for c in unknown_args)
+        print(f"unknown arguments {unknown_args_str} passed, use -h flag for help")
+        exit(1)
+    
+    if args.command not in ALL_COMMANDS.values():
+        if args.command is None:
+            logger.error(f"no command provided. Use one of ({command_list}), see -h flag for help")
+        else:
+            logger.error(f"unknown command '{args.command}' passed, use -h flag for help")
+        exit(1)
     
     if args.version:
         lb_dir = os.path.dirname(os.path.abspath(__file__))
@@ -118,9 +129,6 @@ def main(argv=None):
             VERSION = f.read().strip()
             print(f"lightbeam, version {VERSION}")
         exit(0)
-
-    if args.command not in ALL_COMMANDS:
-        logger.error(f"Please specify a command to run: {command_list}. (Try the -h flag for help.)")
 
     if not args.config_file:
         for file in DEFAULT_CONFIG_FILES:
@@ -151,15 +159,15 @@ def main(argv=None):
         )
     try:
         logger.info("starting...")
-        if args.command=='count': lb.counter.count()
-        elif args.command=='fetch': lb.fetcher.fetch()
-        elif args.command=='validate': lb.validator.validate()
-        elif args.command=='send': lb.sender.send()
-        elif args.command=='validate+send':
+        if args.command==ALL_COMMANDS['count']: lb.counter.count()
+        elif args.command==ALL_COMMANDS['fetch']: lb.fetcher.fetch()
+        elif args.command==ALL_COMMANDS['validate']: lb.validator.validate()
+        elif args.command==ALL_COMMANDS['send']: lb.sender.send()
+        elif args.command==ALL_COMMANDS['validate+send']:
             lb.validator.validate()
             lb.sender.send()
-        elif args.command=='delete': lb.deleter.delete()
-        elif args.command=='truncate': lb.truncator.truncate()
+        elif args.command==ALL_COMMANDS['delete']: lb.deleter.delete()
+        elif args.command==ALL_COMMANDS['truncate']: lb.truncator.truncate()
         lb.logger.info("done!")
     except Exception as e:
         logger.exception(e, exc_info=lb.config["show_stacktrace"])
