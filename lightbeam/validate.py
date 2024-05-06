@@ -114,11 +114,11 @@ class Validator:
     def has_invalid_descriptor_values(self, payload, local_descriptors, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict):
-                value = self.has_invalid_descriptor_values(payload[k], path+("." if path!="" else "")+k)
+                value = self.has_invalid_descriptor_values(payload[k], local_descriptors, path+("." if path!="" else "")+k)
                 if value!="": return value
             elif isinstance(payload[k], list):
                 for i in range(0, len(payload[k])):
-                    value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
+                    value = self.has_invalid_descriptor_values(payload[k][i], local_descriptors, path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], str) and k.endswith("Descriptor"):
                 namespace = payload[k].split("#")[0]
