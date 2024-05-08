@@ -145,14 +145,21 @@ class Lightbeam:
     def get_data_files_for_endpoint(self, endpoint):
         file_list = []
         for ext in self.DATA_FILE_EXTENSIONS:
-            possible_file = os.path.join(self.config["data_dir"], endpoint + "." + ext)
-            if os.path.isfile(possible_file):
-                file_list.append(possible_file)
-            possible_dir = os.path.join(self.config["data_dir"] + endpoint)
-            if os.path.isdir(possible_dir):
-                for file in os.listdir(possible_dir):
-                    if file.endswith("." + ext):
-                        file_list.append(os.path.join(self.config["data_dir"], endpoint, file))
+            # check for (for example):
+            # - studentSchoolAssociations (default case from Ed-Fi Swagger)
+            # - StudentSchoolAssociations (camelcase)
+            # - studentschoolassociations (lowercase)
+            # - STUDENTSCHOOLASSOCIATIONS (uppercase)
+            camelcase_endpoint = endpoint[0].upper() + endpoint[1:]
+            for cased_endpoint in [endpoint, camelcase_endpoint, endpoint.lower(), endpoint.upper()]:
+                possible_file = os.path.join(self.config["data_dir"], cased_endpoint + "." + ext)
+                if os.path.isfile(possible_file):
+                    file_list.append(possible_file)
+                possible_dir = os.path.join(self.config["data_dir"] + cased_endpoint)
+                if os.path.isdir(possible_dir):
+                    for file in os.listdir(possible_dir):
+                        if file.endswith("." + ext):
+                            file_list.append(os.path.join(self.config["data_dir"], cased_endpoint, file))
         return file_list
 
     # Prunes the list of endpoints down to those for which .jsonl files exist in the config.data_dir
