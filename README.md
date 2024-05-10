@@ -152,7 +152,7 @@ validate:
     max_failures: 10 # stop testing after X failed payloads ("fail fast")
     partial: 500 # stop testing if 100% success after X payloads ("succeed fast")
 ```
-These are optional; if not provided, lightbeam will check references in every payload, no matter how many succeed or fail.
+These are optional; if absent, references in every payload are checked, no matter how many succeed or fail.
 
 **Note:** Reference validation efficiency may be improved by first `lightbeam fetch`ing certain resources to have a local copy. `lightbeam validate` checks local JSONL files to resolve references before trying the remote API, and `fetch` retrieves many records per  `GET`, so total runtime can be faster in this scenario. The downsides are more data movement and the local data getting stale over time.
 
