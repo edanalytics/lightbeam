@@ -139,7 +139,7 @@ validate:
   # or
   # methods: ALL
 ```
-(In addition to the above methods, `lighteam validate` will also (first) check that each payload is valid JSON.)
+Default `validate`.`methods` are `["schema", "descriptors", "uniqueness"]` (not `references`; see below). In addition to the above methods, `lighteam validate` will also (first) check that each payload is valid JSON.
 
 The `references` `method` can be slow, as a separate `GET` request is made to your API for each reference. `lightbeam` tries to improve efficiency by:
 * batching these requests and sending several concurrently (using `connection`.`pool_size` threads as specified in `lightbeam.yaml`)
