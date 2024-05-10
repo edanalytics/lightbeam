@@ -86,7 +86,7 @@ class Validator:
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
                 if endpoint == "educationOrganizations":
-                    endpoints_to_check = ["schools", "localEducationAgencies", "stateEducationAgencies"]
+                    endpoints_to_check = ["localEducationAgencies", "stateEducationAgencies", "schools"]
                 else: endpoints_to_check = [endpoint]
                 
                 for endpoint in endpoints_to_check:
@@ -283,7 +283,7 @@ class Validator:
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
                 if endpoint == "educationOrganizations":
-                    endpoints_to_check = ["schools", "localEducationAgencies", "stateEducationAgencies"]
+                    endpoints_to_check = ["localEducationAgencies", "stateEducationAgencies", "schools"]
                 else: endpoints_to_check = [endpoint]
 
                 for endpoint in endpoints_to_check:
