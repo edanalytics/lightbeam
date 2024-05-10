@@ -36,7 +36,7 @@ def pluralize_endpoint(endpoint):
 def interpolate_params(params_structure, payload):
     params = {}
     for k,v in params_structure.items():
-        value = json.loads(payload)
+        value = payload.copy()
         for key in v.split('.'):
             value = value[key]
         params[k] = value

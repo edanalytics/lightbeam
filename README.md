@@ -126,13 +126,36 @@ Like [selectors](#selectors), `keep-keys` and `drop-keys` are comma-separated li
 ```bash
 lightbeam validate -c path/to/config.yaml
 ```
-You may `validate` your JSONL before transmitting it. This checks that the payloads
-1. are valid JSON
-1. conform to the structure described in the Swagger documents for [resources](https://api.ed-fi.org/v5.3/api/metadata/data/v3/resourcess/swagger.json) and [descriptors](https://api.ed-fi.org/v5.3/api/metadata/data/v3/descriptors/swagger.json) fetched from your API
-1. contain valid descriptor values (fetched from your API and/or from descriptor values in your JSONL files)
-1. contain unique values for any natural key
+You may `validate` your JSONL before transmitting it. Configuration for `validate` goes in its own section of `lightbeam.yaml`:
+```yaml
+validate:
+  methods:
+    - schema # checks that payloads conform to the Swagger definitions from the API
+    - descriptors # checks that descriptor values are either locally-defined or exist in the remote API
+    - uniqueness # checks that local payloads are unique by the required property values
+    - references # checks that references resolve, either locally or in the remote API
+  # or
+  # methods: "*"
+  # or
+  # methods: ALL
+```
+(In addition to the above methods, `lighteam validate` will also (first) check that each payload is valid JSON.)
 
-This command will not find invalid reference errors, but is helpful for finding payloads that are invalid JSON, are missing required fields, or have other structural issues.
+The `references` `method` can be slow, as a separate `GET` request is made to your API for each reference. `lightbeam` tries to improve efficiency by:
+* batching these requests and sending several concurrently (using `connection`.`pool_size` threads as specified in `lightbeam.yaml`)
+* caching responses and first checking the cache before making another (potentially identical) request
+
+Even with these optimizations, checking `references` can easily take minutes for even relatively small amounts of data. Therefore `lightbeam.yaml` also accepts two further configuration options:
+```yaml
+validate:
+  references:
+    max_failures: 10 # stop testing after X failed payloads ("fail fast")
+    partial: 500 # stop testing if 100% success after X payloads ("succeed fast")
+```
+These are optional; if not provided, lightbeam will check references in every payload, no matter how many succeed or fail.
+
+**Note:** Reference validation efficiency may be improved by first `lightbeam fetch`ing certain resources to have a local copy. `lightbeam validate` checks local JSONL files to resolve references before trying the remote API, and `fetch` retrieves many records per  `GET`, so total runtime can be faster in this scenario. The downsides are more data movement and the local data getting stale over time.
+
 
 ## `send`
 ```bash
