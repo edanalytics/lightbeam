@@ -154,7 +154,7 @@ validate:
 ```
 These are optional; if absent, references in every payload are checked, no matter how many fail or succeed, respectively.
 
-**Note:** Reference validation efficiency may be improved by first `lightbeam fetch`ing certain resources to have a local copy. `lightbeam validate` checks local JSONL files to resolve references before trying the remote API, and `fetch` retrieves many records per  `GET`, so total runtime can be faster in this scenario. The downsides are more data movement and the local data getting stale over time.
+**Note:** Reference validation efficiency may be improved by first `lightbeam fetch`ing certain resources to have a local copy. `lightbeam validate` checks local JSONL files to resolve references before trying the remote API, and `fetch` retrieves many records per  `GET`, so total runtime can be faster in this scenario. The downsides are more data movement and the local data becoming stale over time.
 
 
 ## `send`
