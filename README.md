@@ -142,7 +142,7 @@ validate:
 Default `validate`.`methods` are `["schema", "descriptors", "uniqueness"]` (not `references`; see below). In addition to the above methods, `lighteam validate` will also (first) check that each payload is valid JSON.
 
 The `references` `method` can be slow, as a separate `GET` request may be made to your API for each reference. (Therefore the validation method is disabled by default.) `lightbeam` tries to improve efficiency by:
-* batching these requests and sending several concurrently (using `connection`.`pool_size` threads as specified in `lightbeam.yaml`)
+* batching requests and sending several concurrently (based on `connection`.`pool_size` of `lightbeam.yaml`)
 * caching responses and first checking the cache before making another (potentially identical) request
 
 Even with these optimizations, checking `references` can easily take minutes for even relatively small amounts of data. Therefore `lightbeam.yaml` also accepts two further configuration options:
