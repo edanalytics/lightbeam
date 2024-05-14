@@ -256,8 +256,12 @@ class EdFiAPI:
             # load descriptor values from API
             selector_backup = self.lightbeam.selector
             exclude_backup = self.lightbeam.exclude
+            keep_keys_backup = self.lightbeam.keep_keys
+            drop_keys_backup = self.lightbeam.drop_keys
             self.lightbeam.selector = "*Descriptors"
             self.lightbeam.exclude = ""
+            self.lightbeam.keep_keys = "*"
+            self.lightbeam.drop_keys = ""
             self.logger.debug(f"fetching descriptor values...")
             all_endpoints = self.get_sorted_endpoints()
             self.lightbeam.endpoints = self.apply_filters(all_endpoints)
@@ -281,6 +285,8 @@ class EdFiAPI:
             self.lightbeam.results = []
             self.lightbeam.selector = selector_backup
             self.lightbeam.exclude = exclude_backup
+            self.lightbeam.keep_keys = keep_keys_backup
+            self.lightbeam.drop_keys = drop_keys_backup
             self.prepare()
 
 
