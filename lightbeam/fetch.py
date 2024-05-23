@@ -89,8 +89,9 @@ class Fetcher:
                                 payload_keys = list(values[0].keys())
                                 final_keys = util.apply_selections(payload_keys, self.lightbeam.keep_keys, self.lightbeam.drop_keys)
                                 do_key_filtering = len(payload_keys) != len(final_keys)
+
                                 for v in values:
-                                    if do_key_filtering: row = {k: v[k] for k in final_keys}
+                                    if do_key_filtering: row = {k: v.get(k, None) for k in final_keys} #v.get() to account for missing keys
                                     else: row = v
                                     if file_handle: file_handle.write(json.dumps(row)+"\n")
                                     else: self.lightbeam.results.append(row)
