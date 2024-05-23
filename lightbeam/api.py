@@ -35,15 +35,22 @@ class EdFiAPI:
         except Exception as e:
             self.logger.critical("could not connect to {0} ({1})".format(self.config["base_url"], str(e)))
         
-        try:
-            api_base = api_base.json()
-        except Exception as e:
-            self.logger.critical("could not parse response from {0} ({1})".format(self.config["base_url"], str(e)))
-
-        self.config["oauth_url"] = api_base["urls"]["oauth"]
-        self.config["dependencies_url"] = api_base["urls"]["dependencies"]
+        # Data URL doesn't rely on metadata connection
         self.config["data_url"] = self.get_data_url()
-        self.config["open_api_metadata_url"] = api_base["urls"]["openApiMetadata"]
+
+        # If ALL urls are set in config (probably from source/destination file),
+        # then they don't need to be pulled from api metadata, so this section can be skipped.
+        # This is most common if the api metadata json files are not in the "default" location.
+        # Otherwise, pull urls from api metadata.
+        if self.config["oauth_url"] == "" or self.config["dependencies_url"]== "":
+            try:
+                api_base = api_base.json()
+            except Exception as e:
+                self.logger.critical("could not parse response from {0} ({1})".format(self.config["base_url"], str(e)))
+
+            self.config["oauth_url"] = api_base["urls"]["oauth"]
+            self.config["dependencies_url"] = api_base["urls"]["dependencies"]
+            self.config["open_api_metadata_url"] = api_base["urls"]["openApiMetadata"]
 
         # load all endpoints in dependency-order
         all_endpoints = self.get_sorted_endpoints()
@@ -160,17 +167,33 @@ class EdFiAPI:
     
     # Loads the Swagger JSON from the Ed-Fi API
     def load_swagger_docs(self):
-        # grab Descriptors and Resources swagger URLs
-        try:
-            self.logger.debug("fetching swagger docs...")
-            response = requests.get(self.config["open_api_metadata_url"],
-                                    verify=self.lightbeam.config["connection"]["verify_ssl"])
-            if not response.ok:
-                raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
-            openapi = response.json()
 
-        except Exception as e:
-            self.logger.critical("Unable to load Swagger docs from API... terminating. Check API connectivity.")
+        # If the metadata URL is set (pulled from root metadata file earlier), then pull endpoint urls from metadata
+        if "open_api_metadata_url" in self.config.keys() and self.config["open_api_metadata_url"] != "":
+            # grab Descriptors and Resources swagger URLs
+            try:
+                self.logger.debug("fetching swagger docs...")
+                response = requests.get(self.config["open_api_metadata_url"],
+                                        verify=self.lightbeam.config["connection"]["verify_ssl"])
+                if not response.ok:
+                    raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
+                openapi = response.json()
+
+            except Exception as e:
+                self.logger.critical("Unable to load Swagger docs from API... terminating. Check API connectivity.")
+        
+        # If metadata URL is not found, set endpoint URLs from config file
+        else:
+            openapi = [
+                {
+                    "name": "descriptors",
+                    "endpointUri": self.config["descriptors_swagger_url"],
+                }, 
+                {
+                    "name": "resources",
+                    "endpointUri": self.config["resources_swagger_url"],
+                }
+            ]
 
         # load (or re-use cached) Descriptors and Resources swagger
         self.descriptors_swagger = None
