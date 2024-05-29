@@ -82,13 +82,13 @@ class Validator:
 
                     # check natural keys are unique
                     params = json.dumps(util.interpolate_params(params_structure, line))
-                    hash = hashlog.get_hash(params)
-                    if hash in distinct_params:
+                    params_hash = hashlog.get_hash(params)
+                    if params_hash in distinct_params:
                         if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                             self.logger.warning(f"... VALIDATION ERROR (line {counter}): duplicate value(s) for natural key(s): {params}")
                         self.lightbeam.num_errors += 1
                         continue
-                    else: distinct_params.append(hash)
+                    else: distinct_params.append(params_hash)
                 
                 if self.lightbeam.num_errors==0: self.logger.info(f"... all lines validate ok!")
                 else:

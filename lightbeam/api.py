@@ -187,8 +187,8 @@ class EdFiAPI:
             if endpoint_type=="descriptors" or endpoint_type=="resources":
                 swagger_url = endpoint["endpointUri"]
                 if self.lightbeam.track_state:
-                    hash = hashlog.get_hash_string(swagger_url)
-                    file = os.path.join(cache_dir, f"swagger-{endpoint_type}-{hash}.json")
+                    url_hash = hashlog.get_hash_string(swagger_url)
+                    file = os.path.join(cache_dir, f"swagger-{endpoint_type}-{url_hash}.json")
                 if (
                     self.lightbeam.track_state  # we have a state_dir in which to store
                     and not self.lightbeam.wipe # we aren't clearing the cache
@@ -234,8 +234,8 @@ class EdFiAPI:
                 os.mkdir(cache_dir)
         
             # check for cached descriptor values
-            hash = hashlog.get_hash_string(self.config["base_url"])
-            cache_file = os.path.join(cache_dir, f"descriptor-values-{hash}.csv")
+            url_hash = hashlog.get_hash_string(self.config["base_url"])
+            cache_file = os.path.join(cache_dir, f"descriptor-values-{url_hash}.csv")
 
         self.lightbeam.reset_counters()
         if (
