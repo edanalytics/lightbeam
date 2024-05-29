@@ -15,7 +15,7 @@ DEFAULT_CONFIG_FILES = ['lightbeam.yaml', 'lightbeam.yml']
 
 # use a dictionary here so that command strings can be accessed with a lookup.
 #   This helps enforce usage of this structure
-ALL_COMMANDS = {
+ALLOWED_COMMANDS = {
    "validate": "validate",
    "send": "send",
    "validate+send": "validate+send",
@@ -24,7 +24,7 @@ ALL_COMMANDS = {
    "count": "count",
    "fetch": "fetch",
 }
-command_list = ', '.join(f"'{c}'" for c in ALL_COMMANDS.values())
+command_list = ', '.join(f"'{c}'" for c in ALLOWED_COMMANDS.values())
 
 # Set up logging
 handler = ExitOnExceptionHandler()
@@ -117,7 +117,7 @@ def main(argv=None):
         print(f"unknown arguments {unknown_args_str} passed, use -h flag for help")
         exit(1)
     
-    if args.command not in ALL_COMMANDS.values():
+    if args.command not in ALLOWED_COMMANDS.values():
         if args.command is None:
             logger.error(f"no command provided. Use one of ({command_list}), see -h flag for help")
         else:
@@ -161,15 +161,15 @@ def main(argv=None):
         )
     try:
         logger.info("starting...")
-        if args.command==ALL_COMMANDS['count']: lb.counter.count()
-        elif args.command==ALL_COMMANDS['fetch']: lb.fetcher.fetch()
-        elif args.command==ALL_COMMANDS['validate']: lb.validator.validate()
-        elif args.command==ALL_COMMANDS['send']: lb.sender.send()
-        elif args.command==ALL_COMMANDS['validate+send']:
+        if args.command==ALLOWED_COMMANDS['count']: lb.counter.count()
+        elif args.command==ALLOWED_COMMANDS['fetch']: lb.fetcher.fetch()
+        elif args.command==ALLOWED_COMMANDS['validate']: lb.validator.validate()
+        elif args.command==ALLOWED_COMMANDS['send']: lb.sender.send()
+        elif args.command==ALLOWED_COMMANDS['validate+send']:
             lb.validator.validate()
             lb.sender.send()
-        elif args.command==ALL_COMMANDS['delete']: lb.deleter.delete()
-        elif args.command==ALL_COMMANDS['truncate']: lb.truncator.truncate()
+        elif args.command==ALLOWED_COMMANDS['delete']: lb.deleter.delete()
+        elif args.command==ALLOWED_COMMANDS['truncate']: lb.truncator.truncate()
         lb.logger.info("done!")
     except Exception as e:
         logger.exception(e, exc_info=lb.config["show_stacktrace"])
