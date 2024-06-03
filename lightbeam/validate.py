@@ -82,13 +82,13 @@ class Validator:
 
                     # check natural keys are unique
                     params = json.dumps(util.interpolate_params(params_structure, line))
-                    hash = hashlog.get_hash(params)
-                    if hash in distinct_params:
+                    params_hash = hashlog.get_hash(params)
+                    if params_hash in distinct_params:
                         if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                             self.logger.warning(f"... VALIDATION ERROR (line {counter}): duplicate value(s) for natural key(s): {params}")
                         self.lightbeam.num_errors += 1
                         continue
-                    else: distinct_params.append(hash)
+                    else: distinct_params.append(params_hash)
                 
                 if self.lightbeam.num_errors==0: self.logger.info(f"... all lines validate ok!")
                 else:
@@ -114,11 +114,11 @@ class Validator:
     def has_invalid_descriptor_values(self, payload, local_descriptors, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict):
-                value = self.has_invalid_descriptor_values(payload[k], path+("." if path!="" else "")+k)
+                value = self.has_invalid_descriptor_values(payload[k], local_descriptors, path+("." if path!="" else "")+k)
                 if value!="": return value
             elif isinstance(payload[k], list):
                 for i in range(0, len(payload[k])):
-                    value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
+                    value = self.has_invalid_descriptor_values(payload[k][i], local_descriptors, path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], str) and k.endswith("Descriptor"):
                 namespace = payload[k].split("#")[0]
