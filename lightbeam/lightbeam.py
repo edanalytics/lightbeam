@@ -24,6 +24,10 @@ class Lightbeam:
         "namespace": "ed-fi",
         "edfi_api": {
             "base_url": "",
+            "oauth_url": "", 
+            "dependencies_url": "",
+            "descriptors_swagger_url": "",
+            "resources_swagger_url": "",
             "version": 3,
             "mode": "year_specific",
             "year": datetime.today().year,
