@@ -13,6 +13,19 @@ class ExitOnExceptionHandler(logging.StreamHandler):
 
 DEFAULT_CONFIG_FILES = ['lightbeam.yaml', 'lightbeam.yml']
 
+# use a dictionary here so that command strings can be accessed with a lookup.
+#   This helps enforce usage of this structure
+ALLOWED_COMMANDS = {
+   "validate": "validate",
+   "send": "send",
+   "validate+send": "validate+send",
+   "delete": "delete",
+   "truncate": "truncate",
+   "count": "count",
+   "fetch": "fetch",
+}
+command_list = ', '.join(f"'{c}'" for c in ALLOWED_COMMANDS.values())
+
 # Set up logging
 handler = ExitOnExceptionHandler()
 formatter = logging.Formatter("%(asctime)s.%(msecs)03d %(name)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
@@ -35,7 +48,7 @@ def main(argv=None):
     parser.add_argument('command',
         nargs="?",
         type=str,
-        help='the command to run: `validate`, `send`, `validate+send`, or `delete`'
+        help=f'the command to run: {command_list}'
         )
     parser.add_argument("-c", "--config-file",
         nargs="?",
@@ -98,7 +111,18 @@ def main(argv=None):
 
     defaults = { "selector":"*", "params": "", "older_than": "", "newer_than": "", "resend_status_codes": "", "results_file": "" }
     parser.set_defaults(**defaults)
-    args, remaining_argv = parser.parse_known_args()
+    args, unknown_args = parser.parse_known_args()
+    if len(unknown_args) > 0:
+        unknown_args_str = ', '.join(f"`{c}`" for c in unknown_args)
+        print(f"unknown arguments {unknown_args_str} passed, use -h flag for help")
+        exit(1)
+    
+    if args.command not in ALLOWED_COMMANDS.values():
+        if args.command is None:
+            logger.error(f"no command provided. Use one of ({command_list}), see -h flag for help")
+        else:
+            logger.error(f"unknown command '{args.command}' passed, use -h flag for help")
+        exit(1)
     
     if args.version:
         lb_dir = os.path.dirname(os.path.abspath(__file__))
@@ -107,9 +131,6 @@ def main(argv=None):
             VERSION = f.read().strip()
             print(f"lightbeam, version {VERSION}")
         exit(0)
-
-    if args.command not in ['validate', 'send', 'validate+send', 'delete', 'truncate', 'count', 'fetch']:
-        logger.error("Please specify a command to run: `count`, `fetch`, `validate`, `send`, `validate+send`, `delete`, or `truncate`. (Try the -h flag for help.)")
 
     if not args.config_file:
         for file in DEFAULT_CONFIG_FILES:
@@ -140,15 +161,15 @@ def main(argv=None):
         )
     try:
         logger.info("starting...")
-        if args.command=='count': lb.counter.count()
-        elif args.command=='fetch': lb.fetcher.fetch()
-        elif args.command=='validate': lb.validator.validate()
-        elif args.command=='send': lb.sender.send()
-        elif args.command=='validate+send':
+        if args.command==ALLOWED_COMMANDS['count']: lb.counter.count()
+        elif args.command==ALLOWED_COMMANDS['fetch']: lb.fetcher.fetch()
+        elif args.command==ALLOWED_COMMANDS['validate']: lb.validator.validate()
+        elif args.command==ALLOWED_COMMANDS['send']: lb.sender.send()
+        elif args.command==ALLOWED_COMMANDS['validate+send']:
             lb.validator.validate()
             lb.sender.send()
-        elif args.command=='delete': lb.deleter.delete()
-        elif args.command=='truncate': lb.truncator.truncate()
+        elif args.command==ALLOWED_COMMANDS['delete']: lb.deleter.delete()
+        elif args.command==ALLOWED_COMMANDS['truncate']: lb.truncator.truncate()
         lb.logger.info("done!")
     except Exception as e:
         logger.exception(e, exc_info=lb.config["show_stacktrace"])

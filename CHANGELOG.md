@@ -1,5 +1,9 @@
 ### Unreleased
+<details>
+
+* bugfix: [Ensure command list in help menu and log output is always consistent](https://github.com/edanalytics/lightbeam/pull/27)
 * bugfix: Fix how hashlog entries are removed during `lightbeam delete`
+</details>
 
 ### v0.1.2
 <details>
