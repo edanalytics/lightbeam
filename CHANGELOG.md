@@ -1,3 +1,6 @@
+### Unreleased
+* bugfix: Fix how hashlog entries are removed during `lightbeam delete`
+
 ### v0.1.2
 <details>
 <summary>Released 2024-04-19</summary>

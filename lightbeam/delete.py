@@ -91,16 +91,13 @@ class Deleter:
                     params = util.interpolate_params(params_structure, data)
 
                     # check if we've posted this data before
-                    hash = hashlog.get_hash(data)
-                    if self.lightbeam.track_state and hash in self.hashlog_data.keys():
+                    data_hash = hashlog.get_hash(data)
+                    if self.lightbeam.track_state and data_hash in self.hashlog_data.keys():
                         # check if the last post meets criteria for a delete
-                        if self.lightbeam.meets_process_criteria(self.hashlog_data[hash]):
+                        if self.lightbeam.meets_process_criteria(self.hashlog_data[data_hash]):
                             # yes, we need to delete it; append to task queue
                             tasks.append(asyncio.create_task(
-                                self.do_delete(endpoint, file_name, params, counter)))
-                            
-                            # remove the payload from the hashlog
-                            del self.hashlog_data[hash]
+                                self.do_delete(endpoint, file_name, params, counter, data_hash)))
                         else:
                             # no, do not delete
                             self.lightbeam.num_skipped += 1
@@ -128,7 +125,7 @@ class Deleter:
             hashlog.save(hashlog_file, self.hashlog_data)
 
     # Deletes a single payload for a single endpoint
-    async def do_delete(self, endpoint, file_name, params, line):
+    async def do_delete(self, endpoint, file_name, params, line, data_hash=None):
         curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
@@ -163,7 +160,7 @@ class Deleter:
                                 if type(j)==list and len(j)==1:
                                     the_id = j[0]['id']
                                     # now we can delete by `id`
-                                    await self.do_delete_id(endpoint, the_id, file_name, line)
+                                    await self.do_delete_id(endpoint, the_id, file_name, line, data_hash)
                                     break
                                     
                                 elif type(j)==list and len(j)==0: skip_reason = "payload not found in API"
@@ -195,7 +192,7 @@ class Deleter:
                 self.logger.error("  (at line {0} of {1}; ID: {2} )".format(line, file_name, id))
                 break
 
-    async def do_delete_id(self, endpoint, id, file_name=None, line=None):
+    async def do_delete_id(self, endpoint, id, file_name=None, line=None, data_hash=None):
         curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
@@ -209,12 +206,15 @@ class Deleter:
                     if status!=401:
                         self.lightbeam.num_finished += 1
                         self.lightbeam.increment_status_counts(status)
-                        if self.lightbeam.track_state:
-                            del self.hashlog_data[hash]
                         if status not in [ 204 ]:
                             message = str(status) + ": " + util.linearize(body)
                             self.lightbeam.increment_status_reason(message)
                             self.lightbeam.num_errors += 1
+                        else:
+                            if self.lightbeam.track_state and data_hash is not None:
+                                # if we're certain delete was successful, remove this
+                                # line of data from internal tracking
+                                del self.hashlog_data[data_hash]
                         break # (out of while loop)
                     else:
                         # this could be broken out to a separate function call,
