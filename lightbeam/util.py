@@ -1,6 +1,7 @@
 import re
 import json
 import itertools
+import copy
 
 # Strips newlines from a string
 # Replace single-quotes with backticks
@@ -63,7 +64,8 @@ def apply_selections(keys, keep, drop):
         for payload_key, keep_key in list(itertools.product(keys, keep)):
             if (keys_match(payload_key, keep_key)):
                 final_keys.append(payload_key)
-    else: final_keys = keys
+    # copy rather than direct pointer assignment, so this function doesn't modify the payload_keys variable in parent code
+    else: final_keys = keys.copy()
     # remove from `final_keys` keys that match `drop`
     if drop and drop != [""]:
         for payload_key, drop_key in list(itertools.product(keys, drop)):

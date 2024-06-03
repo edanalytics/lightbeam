@@ -177,56 +177,65 @@ class Validator:
         params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
         distinct_params = []
 
-        # check payload is valid JSON
-        try:
-            payload = json.loads(data)
-        except Exception as e:
-            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): invalid JSON" + str(e).replace(" line 1",""))
-            self.lightbeam.num_errors += 1
-            return
+        endpoint_data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
+        for file in endpoint_data_files:
+            self.logger.info(f"validating {file} against {definition} schema...")
+            with open(file) as f:
+                counter = 0
+                self.lightbeam.num_errors = 0
+                for line in f:
+                    counter += 1
+                    
+                    # check payload is valid JSON
+                    try:
+                        payload = json.loads(data)
+                    except Exception as e:
+                        if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                            self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): invalid JSON" + str(e).replace(" line 1",""))
+                        self.lightbeam.num_errors += 1
+                        return
 
-        # check payload obeys Swagger schema
-        if "schema" in validation_methods:
-            try:
-                validator.validate(payload)
-            except Exception as e:
-                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                    e_path = [str(x) for x in list(e.path)]
-                    context = ""
-                    if len(e_path)>0: context = " in " + " -> ".join(e_path)
-                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + str(e.message) + context)
-                self.lightbeam.num_errors += 1
-                return
+                    # check payload obeys Swagger schema
+                    if "schema" in validation_methods:
+                        try:
+                            validator.validate(payload)
+                        except Exception as e:
+                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                                e_path = [str(x) for x in list(e.path)]
+                                context = ""
+                                if len(e_path)>0: context = " in " + " -> ".join(e_path)
+                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + str(e.message) + context)
+                            self.lightbeam.num_errors += 1
+                            return
 
-        # check descriptor values are valid
-        if "descriptors" in validation_methods:
-            error_message = self.has_invalid_descriptor_values(payload, path="")
-            if error_message != "":
-                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
-                self.lightbeam.num_errors += 1
-                return
+                    # check descriptor values are valid
+                    if "descriptors" in validation_methods:
+                        error_message = self.has_invalid_descriptor_values(payload, path="")
+                        if error_message != "":
+                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
+                            self.lightbeam.num_errors += 1
+                            return
 
-        # check natural keys are unique
-        if "uniqueness" in validation_methods:
-            params = json.dumps(util.interpolate_params(params_structure, payload))
-            hash = hashlog.get_hash(params)
-            if hash in distinct_params:
-                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): duplicate value(s) for natural key(s): {params}")
-                self.lightbeam.num_errors += 1
-                return
-            else: distinct_params.append(hash)
+                    # check natural keys are unique
+                    if "uniqueness" in validation_methods:
+                        params = json.dumps(util.interpolate_params(params_structure, payload))
+                        params_hash = hashlog.get_hash(params)
+                        if params_hash in distinct_params:
+                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): duplicate value(s) for natural key(s): {params}")
+                            self.lightbeam.num_errors += 1
+                            return
+                        else: distinct_params.append(params_hash)
 
-        # check references values are valid
-        if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
-            self.lightbeam.api.do_oauth()
-            error_message = await self.has_invalid_references(payload, path="")
-            if error_message != "":
-                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
-                self.lightbeam.num_errors += 1
+                    # check references values are valid
+                    if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
+                        self.lightbeam.api.do_oauth()
+                        error_message = await self.has_invalid_references(payload, path="")
+                        if error_message != "":
+                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
+                            self.lightbeam.num_errors += 1
                 
                 
     def load_local_descriptors(self):
@@ -246,11 +255,11 @@ class Validator:
     def has_invalid_descriptor_values(self, payload, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict):
-                value = self.has_invalid_descriptor_values(payload[k], path+("." if path!="" else "")+k)
+                value = self.has_invalid_descriptor_values(payload[k], local_descriptors, path+("." if path!="" else "")+k)
                 if value!="": return value
             elif isinstance(payload[k], list):
                 for i in range(0, len(payload[k])):
-                    value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
+                    value = self.has_invalid_descriptor_values(payload[k][i], local_descriptors, path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], str) and k.endswith("Descriptor"):
                 namespace = payload[k].split("#")[0]
@@ -367,3 +376,4 @@ class Validator:
                 await asyncio.sleep(1)
             except Exception as e:
                 self.logger.critical(f"Unable to resolve reference for {endpoint} from API... terminating. Check API connectivity.")
+
