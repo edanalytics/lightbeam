@@ -1,8 +1,13 @@
-### Unreleased
+### v0.1.3
 <details>
+<summary>Released 2024-06-03</summary>
 
+* feature: [Support custom Ed-Fi URLs](https://github.com/edanalytics/lightbeam/pull/33)
+* bugfix: [Fix `--drop-keys` and `--keep-keys` filtering](https://github.com/edanalytics/lightbeam/pull/32)
 * bugfix: [Ensure command list in help menu and log output is always consistent](https://github.com/edanalytics/lightbeam/pull/27)
-* bugfix: Fix how hashlog entries are removed during `lightbeam delete`
+* bugfix: [Fix how hashlog entries are removed during `lightbeam delete`](https://github.com/edanalytics/lightbeam/pull/34)
+* bugfix: [Fix validation of local descriptor values within nested payloads](https://github.com/edanalytics/lightbeam/pull/29)
+* bugfix: [No descriptor payload keys were kept after being downloaded by `lightbeam validate`](https://github.com/edanalytics/lightbeam/pull/28)
 </details>
 
 ### v0.1.2
