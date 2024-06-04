@@ -29,7 +29,7 @@ def singularize_endpoint(endpoint):
     elif endpoint=="people": return "person"
     else: return endpoint[0:-1]
 def pluralize_endpoint(endpoint):
-    if endpoint[-1:]=="y": return endpoint[0:-3] + "ies"
+    if endpoint[-1:]=="y": return endpoint[0:-1] + "ies"
     elif endpoint=="person": return "people"
     else: return endpoint+"s"
 

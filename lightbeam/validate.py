@@ -1,5 +1,5 @@
 import json
-import asyncio
+import asyncio, concurrent.futures
 from urllib.parse import urlencode
 from jsonschema import RefResolver
 from jsonschema import Draft4Validator
@@ -13,6 +13,18 @@ class Validator:
     MAX_VALIDATION_ERRORS_TO_DISPLAY = 10
     MAX_VALIDATE_TASK_QUEUE_SIZE = 50
     DEFAULT_VALIDATION_METHODS = ["schema", "descriptors", "uniqueness"]
+
+    EDFI_GENERICS_TO_RESOURCES_MAPPING = {
+        "educationOrganizations": ["localEducationAgencies", "stateEducationAgencies", "schools"],
+    }
+    EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING = {
+        "educationOrganizationId": {
+            "localEducationAgencies": "localEducationAgencyId",
+            "stateEducationAgencies": "stateEducationAgencyId",
+            "schools": "schoolId",
+        },
+    }
+    
 
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
@@ -43,7 +55,8 @@ class Validator:
                 self.load_local_reference_data(endpoint)
                 # create a structure which remote reference lookups can populate to prevent repeated lookups for the same thing
                 self.remote_reference_cache = {}
-            asyncio.run(self.do_validate_endpoint(endpoint))
+                self.pool = concurrent.futures.ThreadPoolExecutor()
+            asyncio.run(self.validate_endpoint(endpoint))
     
     def load_local_reference_data(self, endpoint):
         self.local_references = {}
@@ -55,21 +68,24 @@ class Validator:
 
     def load_references_data(self, references_structure):
         data = {}
-        for endpoint in references_structure.keys():
-            data[endpoint] = []
-            data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
-            for file_name in data_files:
-                with open(file_name) as file:
-                    for line_counter, line in enumerate(file):
-                        line = line.strip()
-                        try:
-                            payload = json.loads(line)
-                        except Exception as e:
-                            self.logger.warning(f"... (ignoring invalid JSON payload at {line_counter} of {file_name})")
-                        ref_payload = {}
-                        for property in references_structure[endpoint]:
-                            ref_payload[property] = payload[property]
-                        data[endpoint].append(ref_payload)
+        for original_endpoint in references_structure.keys():
+            endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
+            for endpoint in endpoints_to_check:
+                data[endpoint] = []
+                data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
+                for file_name in data_files:
+                    with open(file_name) as file:
+                        for line_counter, line in enumerate(file):
+                            line = line.strip()
+                            try:
+                                payload = json.loads(line)
+                            except Exception as e:
+                                self.logger.warning(f"... (ignoring invalid JSON payload at {line_counter} of {file_name})")
+                            ref_payload = {}
+                            for key in references_structure[endpoint]:
+                                key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
+                                ref_payload[key] = payload[key]
+                            data[endpoint].append(ref_payload)
         return data
 
     def load_references_structure(self, swagger, definition):
@@ -113,7 +129,7 @@ class Validator:
         return util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
     
     # Validates a single endpoint based on the Swagger docs
-    async def do_validate_endpoint(self, endpoint):
+    async def validate_endpoint(self, endpoint, local_descriptors=[]):
         partial_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("partial", False)
         fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", 10)
         definition = self.get_swagger_definition_for_endpoint(endpoint)
@@ -129,7 +145,7 @@ class Validator:
                     data = line.strip()
                         
                     tasks.append(asyncio.create_task(
-                        self.do_validate_payload(endpoint, file_name, data, line_counter)))
+                        self.do_validate_payload(endpoint, file_name, data, line_counter, local_descriptors)))
                 
                     if total_counter%self.MAX_VALIDATE_TASK_QUEUE_SIZE==0:
                         await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
@@ -154,7 +170,7 @@ class Validator:
                 self.logger.critical(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_counter} lines in {file_name}; see details above.")
 
 
-    async def do_validate_payload(self, endpoint, file_name, data, line_counter):
+    async def do_validate_payload(self, endpoint, file_name, data, line_counter, local_descriptors):
         validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
         if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
             validation_methods = self.DEFAULT_VALIDATION_METHODS
@@ -177,65 +193,56 @@ class Validator:
         params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
         distinct_params = []
 
-        endpoint_data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
-        for file in endpoint_data_files:
-            self.logger.info(f"validating {file} against {definition} schema...")
-            with open(file) as f:
-                counter = 0
-                self.lightbeam.num_errors = 0
-                for line in f:
-                    counter += 1
-                    
-                    # check payload is valid JSON
-                    try:
-                        payload = json.loads(data)
-                    except Exception as e:
-                        if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                            self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): invalid JSON" + str(e).replace(" line 1",""))
-                        self.lightbeam.num_errors += 1
-                        return
+        # check payload is valid JSON
+        try:
+            payload = json.loads(data)
+        except Exception as e:
+            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): invalid JSON" + str(e).replace(" line 1",""))
+            self.lightbeam.num_errors += 1
+            return
 
-                    # check payload obeys Swagger schema
-                    if "schema" in validation_methods:
-                        try:
-                            validator.validate(payload)
-                        except Exception as e:
-                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                                e_path = [str(x) for x in list(e.path)]
-                                context = ""
-                                if len(e_path)>0: context = " in " + " -> ".join(e_path)
-                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + str(e.message) + context)
-                            self.lightbeam.num_errors += 1
-                            return
+        # check payload obeys Swagger schema
+        if "schema" in validation_methods:
+            try:
+                validator.validate(payload)
+            except Exception as e:
+                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                    e_path = [str(x) for x in list(e.path)]
+                    context = ""
+                    if len(e_path)>0: context = " in " + " -> ".join(e_path)
+                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + str(e.message) + context)
+                self.lightbeam.num_errors += 1
+                return
 
-                    # check descriptor values are valid
-                    if "descriptors" in validation_methods:
-                        error_message = self.has_invalid_descriptor_values(payload, path="")
-                        if error_message != "":
-                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
-                            self.lightbeam.num_errors += 1
-                            return
+        # check descriptor values are valid
+        if "descriptors" in validation_methods:
+            error_message = self.has_invalid_descriptor_values(payload, local_descriptors, path="")
+            if error_message != "":
+                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
+                self.lightbeam.num_errors += 1
+                return
 
-                    # check natural keys are unique
-                    if "uniqueness" in validation_methods:
-                        params = json.dumps(util.interpolate_params(params_structure, payload))
-                        params_hash = hashlog.get_hash(params)
-                        if params_hash in distinct_params:
-                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): duplicate value(s) for natural key(s): {params}")
-                            self.lightbeam.num_errors += 1
-                            return
-                        else: distinct_params.append(params_hash)
+        # check natural keys are unique
+        if "uniqueness" in validation_methods:
+            params = json.dumps(util.interpolate_params(params_structure, payload))
+            params_hash = hashlog.get_hash(params)
+            if params_hash in distinct_params:
+                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): duplicate value(s) for natural key(s): {params}")
+                self.lightbeam.num_errors += 1
+                return
+            else: distinct_params.append(params_hash)
 
-                    # check references values are valid
-                    if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
-                        self.lightbeam.api.do_oauth()
-                        error_message = await self.has_invalid_references(payload, path="")
-                        if error_message != "":
-                            if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-                                self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
-                            self.lightbeam.num_errors += 1
+        # check references values are valid
+        if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
+            self.lightbeam.api.do_oauth()
+            error_message = self.has_invalid_references(payload, path="")
+            if error_message != "":
+                if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
+                    self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
+                self.lightbeam.num_errors += 1
                 
                 
     def load_local_descriptors(self):
@@ -252,7 +259,7 @@ class Validator:
         self.local_descriptors = local_descriptors
     
     # Validates descriptor values for a single payload (returns an error message or empty string)
-    def has_invalid_descriptor_values(self, payload, path=""):
+    def has_invalid_descriptor_values(self, payload, local_descriptors, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict):
                 value = self.has_invalid_descriptor_values(payload[k], local_descriptors, path+("." if path!="" else "")+k)
@@ -277,7 +284,7 @@ class Validator:
         return ""
 
     # Validates descriptor values for a single payload (returns an error message or empty string)
-    async def has_invalid_references(self, payload, path=""):
+    def has_invalid_references(self, payload, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict) and not k.endswith("Reference"):
                 value = self.has_invalid_references(payload[k], path+("." if path!="" else "")+k)
@@ -288,31 +295,35 @@ class Validator:
                     if value!="": return value
             elif isinstance(payload[k], dict) and k.endswith("Reference"):
                 is_valid_reference = False
-                endpoint = util.pluralize_endpoint(k.replace("Reference",""))
+                original_endpoint = util.pluralize_endpoint(k.replace("Reference",""))
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
-                if endpoint == "educationOrganizations":
-                    endpoints_to_check = ["localEducationAgencies", "stateEducationAgencies", "schools"]
-                else: endpoints_to_check = [endpoint]
-
+                endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
                 for endpoint in endpoints_to_check:
                     # check if it's a local reference:
+                    if endpoint not in self.local_references.keys(): break
                     for local_payload in self.local_references[endpoint]:
                         instance_matches = True
                         for key,value in payload[k].items():
+                            if key == "link": continue
+                            key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
                             if value!=local_payload[key]:
                                 instance_matches = False
                                 break
                         if instance_matches:
                             is_valid_reference = True
                             break
-                    if not is_valid_reference: # not found in local data...
+                        if is_valid_reference: break
+                if not is_valid_reference: # not found in local data...
+                    for endpoint in endpoints_to_check:
                         # check if it's a remote reference:
                         params = payload[k].copy()
+                        # key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(k, {}).get(endpoint, key)
                         if "link" in params.keys(): del params["link"]
-                        value = await self.remote_reference_exists(endpoint, params)
+                        value = asyncio.wait(self.remote_reference_exists(endpoint, params))
                         if value:
                             is_valid_reference = True
+                            break
                     if not is_valid_reference:
                         return f"payload contains an invalid {k} " + (" (at "+path+"): " if path!="" else ": ") + json.dumps(params)
         return ""
