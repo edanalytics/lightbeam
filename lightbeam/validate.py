@@ -24,7 +24,6 @@ class Validator:
             "schools": "schoolId",
         },
     }
-    
 
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
@@ -318,7 +317,6 @@ class Validator:
                     for endpoint in endpoints_to_check:
                         # check if it's a remote reference:
                         params = payload[k].copy()
-                        # key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(k, {}).get(endpoint, key)
                         if "link" in params.keys(): del params["link"]
                         value = asyncio.wait(self.remote_reference_exists(endpoint, params))
                         if value:
