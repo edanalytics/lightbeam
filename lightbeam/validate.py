@@ -41,7 +41,7 @@ class Validator:
             # load remote descriptors
             asyncio.run(self.lightbeam.api.load_descriptors_values())
             self.lightbeam.reset_counters()
-            self.local_descriptors = self.load_local_descriptors()
+            self.load_local_descriptors()
         
         for endpoint in self.lightbeam.endpoints:
             if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references:
@@ -128,7 +128,7 @@ class Validator:
         return util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
     
     # Validates a single endpoint based on the Swagger docs
-    async def validate_endpoint(self, endpoint, local_descriptors=[]):
+    async def validate_endpoint(self, endpoint):
         partial_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("partial", False)
         fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", 10)
         definition = self.get_swagger_definition_for_endpoint(endpoint)
@@ -144,7 +144,7 @@ class Validator:
                     data = line.strip()
                         
                     tasks.append(asyncio.create_task(
-                        self.do_validate_payload(endpoint, file_name, data, line_counter, local_descriptors)))
+                        self.do_validate_payload(endpoint, file_name, data, line_counter)))
                 
                     if total_counter%self.MAX_VALIDATE_TASK_QUEUE_SIZE==0:
                         await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
@@ -169,7 +169,7 @@ class Validator:
                 self.logger.critical(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_counter} lines in {file_name}; see details above.")
 
 
-    async def do_validate_payload(self, endpoint, file_name, data, line_counter, local_descriptors):
+    async def do_validate_payload(self, endpoint, file_name, data, line_counter):
         validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
         if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
             validation_methods = self.DEFAULT_VALIDATION_METHODS
@@ -216,7 +216,7 @@ class Validator:
 
         # check descriptor values are valid
         if "descriptors" in validation_methods:
-            error_message = self.has_invalid_descriptor_values(payload, local_descriptors, path="")
+            error_message = self.has_invalid_descriptor_values(payload, path="")
             if error_message != "":
                 if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                     self.logger.warning(f"... VALIDATION ERROR (line {line_counter}): " + error_message)
@@ -258,14 +258,14 @@ class Validator:
         self.local_descriptors = local_descriptors
     
     # Validates descriptor values for a single payload (returns an error message or empty string)
-    def has_invalid_descriptor_values(self, payload, local_descriptors, path=""):
+    def has_invalid_descriptor_values(self, payload, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict):
-                value = self.has_invalid_descriptor_values(payload[k], local_descriptors, path+("." if path!="" else "")+k)
+                value = self.has_invalid_descriptor_values(payload[k], path+("." if path!="" else "")+k)
                 if value!="": return value
             elif isinstance(payload[k], list):
                 for i in range(0, len(payload[k])):
-                    value = self.has_invalid_descriptor_values(payload[k][i], local_descriptors, path+("." if path!="" else "")+k+"["+str(i)+"]")
+                    value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], str) and k.endswith("Descriptor"):
                 namespace = payload[k].split("#")[0]
