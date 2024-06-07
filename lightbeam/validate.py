@@ -1,4 +1,5 @@
 import json
+import requests
 import asyncio, concurrent.futures
 from urllib.parse import urlencode
 from jsonschema import RefResolver
@@ -16,6 +17,7 @@ class Validator:
 
     EDFI_GENERICS_TO_RESOURCES_MAPPING = {
         "educationOrganizations": ["localEducationAgencies", "stateEducationAgencies", "schools"],
+        "objectiveAssessment": [""]
     }
     EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING = {
         "educationOrganizationId": {
@@ -43,7 +45,8 @@ class Validator:
             self.lightbeam.reset_counters()
             self.load_local_descriptors()
         
-        for endpoint in self.lightbeam.endpoints:
+        endpoints = self.lightbeam.get_endpoints_with_data(self.lightbeam.endpoints)
+        for endpoint in endpoints:
             if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references:
                 # We don't want every `do_validate_payload()` to separately have to open and scan
                 # local files looking for a matching payload; this pre-loads local data that
@@ -54,7 +57,6 @@ class Validator:
                 self.load_local_reference_data(endpoint)
                 # create a structure which remote reference lookups can populate to prevent repeated lookups for the same thing
                 self.remote_reference_cache = {}
-                self.pool = concurrent.futures.ThreadPoolExecutor()
             asyncio.run(self.validate_endpoint(endpoint))
     
     def load_local_reference_data(self, endpoint):
@@ -318,7 +320,7 @@ class Validator:
                         # check if it's a remote reference:
                         params = payload[k].copy()
                         if "link" in params.keys(): del params["link"]
-                        value = asyncio.wait(self.remote_reference_exists(endpoint, params))
+                        value = self.remote_reference_exists(endpoint, params)
                         if value:
                             is_valid_reference = True
                             break
@@ -333,7 +335,7 @@ class Validator:
                 return True
         return False
     
-    async def remote_reference_exists(self, endpoint, params):
+    def remote_reference_exists(self, endpoint, params):
         # check cache:
         if endpoint not in self.remote_reference_cache.keys():
             self.remote_reference_cache[endpoint] = []
@@ -347,42 +349,42 @@ class Validator:
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 # send GET request
-                async with self.lightbeam.api.client.get(
+                response = requests.get(
                     util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
                     params=params,
-                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                    verify=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers
-                    ) as response:
-                    body = await response.text()
-                    status = str(response.status)
-                    if status=='401':
-                        # this could be broken out to a separate function call,
-                        # but not doing so should help keep the critical section small
-                        if self.lightbeam.token_version == curr_token_version:
-                            self.lightbeam.lock.acquire()
-                            self.lightbeam.api.update_oauth()
-                            self.lightbeam.lock.release()
-                        else:
-                            await asyncio.sleep(1)
-                        curr_token_version = int(str(self.lightbeam.token_version))
-                    elif status=='404':
-                        return False
-                    elif status in ['200', '201']:
-                        # 200 response might still return zero matching records...
-                        if len(json.loads(body))>0:
-                            # add to cache
-                            if cache_key not in self.remote_reference_cache[endpoint]:
-                                self.remote_reference_cache[endpoint].append(cache_key)
-                            return True
-                        else: return False
+                    )
+                body = response.text
+                status = str(response.status_code)
+                if status=='401':
+                    # this could be broken out to a separate function call,
+                    # but not doing so should help keep the critical section small
+                    if self.lightbeam.token_version == curr_token_version:
+                        self.lightbeam.lock.acquire()
+                        self.lightbeam.api.update_oauth()
+                        self.lightbeam.lock.release()
                     else:
-                        print(f"Status: {status}")
-                        print(f"Body: {body}")
-                        self.logger.warn(f"Unable to resolve reference for {endpoint}... API returned {status} status.")
-                        return False
+                        pass # await asyncio.sleep(1)
+                    curr_token_version = int(str(self.lightbeam.token_version))
+                elif status=='404':
+                    return False
+                elif status in ['200', '201']:
+                    # 200 response might still return zero matching records...
+                    if len(json.loads(body))>0:
+                        # add to cache
+                        if cache_key not in self.remote_reference_cache[endpoint]:
+                            self.remote_reference_cache[endpoint].append(cache_key)
+                        return True
+                    else: return False
+                else:
+                    print(f"Status: {status}")
+                    print(f"Body: {body}")
+                    self.logger.warn(f"Unable to resolve reference for {endpoint}... API returned {status} status.")
+                    return False
 
             except RuntimeError as e:
-                await asyncio.sleep(1)
+                pass # await asyncio.sleep(1)
             except Exception as e:
                 self.logger.critical(f"Unable to resolve reference for {endpoint} from API... terminating. Check API connectivity.")
 
