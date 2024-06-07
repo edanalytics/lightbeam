@@ -163,9 +163,30 @@ class Lightbeam:
     def get_endpoints_with_data(self, endpoints):
         self.logger.debug("discovering data...")
         endpoints_with_data = []
-        for endpoint in endpoints:
-            if self.get_data_files_for_endpoint(endpoint):
-                endpoints_with_data.append(endpoint)
+        data_dir_list = os.listdir(self.config["data_dir"])
+        for data_dir_item in data_dir_list:
+            data_dir_item_path = os.path.join(self.config["data_dir"], data_dir_item)
+            if os.path.isfile(data_dir_item_path):
+                filename = os.path.basename(data_dir_item)
+                extension = filename.rsplit(".", 1)[-1]
+                filename_without_extension = filename.rsplit(".", 1)[0]
+                if extension in self.DATA_FILE_EXTENSIONS and filename_without_extension in self.all_endpoints:
+                    endpoints_with_data.append(filename_without_extension)
+            elif os.path.isdir(data_dir_item_path):
+                if data_dir_item in self.all_endpoints:
+                    has_data_file = False
+                    sub_dir_list = os.listdir(data_dir_item_path)
+                    for sub_dir_item in sub_dir_list:
+                        sub_dir_item_path = os.path.join(data_dir_item_path, sub_dir_item)
+                        if os.path.isfile(sub_dir_item_path):
+                            filename = os.path.basename(sub_dir_item)
+                            extension = filename.rsplit(".", 1)[-1]
+                            if extension in self.DATA_FILE_EXTENSIONS:
+                                has_data_file = True
+                                break
+                    if has_data_file:
+                        endpoints_with_data.append(data_dir_item)
+
         return endpoints_with_data
     
     # Returns a generator which produces json lines for a given endpoint based on relevant files in config.data_dir

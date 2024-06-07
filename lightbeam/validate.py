@@ -45,7 +45,7 @@ class Validator:
             self.lightbeam.reset_counters()
             self.load_local_descriptors()
         
-        endpoints = self.lightbeam.get_endpoints_with_data(self.lightbeam.endpoints)
+        endpoints = self.lightbeam.endpoints
         for endpoint in endpoints:
             if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references:
                 # We don't want every `do_validate_payload()` to separately have to open and scan
@@ -64,8 +64,21 @@ class Validator:
         swagger = self.lightbeam.api.resources_swagger
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         references_structure = self.load_references_structure(swagger, definition)
+        references_structure = self.rebalance_local_references_structure(references_structure)
         references_data = self.load_references_data(references_structure)
         self.local_references.update(references_data)
+
+    # this is (unfortunately) necessary to allow lookup of nested references in local payload
+    # (for remote reference lookup, a flat dict of keys is passed to the Ed-Fi API and it takes care of nesting)
+    def rebalance_local_references_structure(self, references_structure):
+        if "objectiveAssessments" in references_structure.keys():
+            if "assessmentIdentifier" in references_structure["objectiveAssessments"]:
+                references_structure["objectiveAssessments"].remove("assessmentIdentifier")
+                references_structure["objectiveAssessments"].append("assessmentReference.assessmentIdentifier")
+            if "namespace" in references_structure["objectiveAssessments"]:
+                references_structure["objectiveAssessments"].remove("namespace")
+                references_structure["objectiveAssessments"].append("assessmentReference.namespace")
+        return references_structure
 
     def load_references_data(self, references_structure):
         data = {}
@@ -85,7 +98,10 @@ class Validator:
                             ref_payload = {}
                             for key in references_structure[endpoint]:
                                 key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
-                                ref_payload[key] = payload[key]
+                                tmpdata = payload
+                                for subkey in key.split("."):
+                                    tmpdata = tmpdata[subkey]
+                                ref_payload[key] = tmpdata
                             data[endpoint].append(ref_payload)
         return data
 
@@ -99,18 +115,22 @@ class Validator:
         references = {}
         for k in schema["properties"].keys():
             if k.endswith("Reference"):
-                endpoint = util.pluralize_endpoint(k.replace("Reference", ""))
+                original_endpoint = util.pluralize_endpoint(k.replace("Reference", ""))
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
-                if endpoint == "educationOrganizations":
-                    endpoints_to_check = ["localEducationAgencies", "stateEducationAgencies", "schools"]
-                else: endpoints_to_check = [endpoint]
+                endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
                 
                 for endpoint in endpoints_to_check:
                     ref_definition = schema["properties"][k]["$ref"].replace("#/definitions/", "")
                     # look up (in swagger) the required fields for any reference
                     ref_properties = self.load_reference(swagger, ref_definition)
                     references[endpoint] = ref_properties
+            elif "items" in schema["properties"][k].keys():
+                # this deals with a property which is a list of items which themselves contain References
+                # (example: studentAssessment.studentObjectiveAssessments contain an objectiveAssessmentReference)
+                nested_definition = schema["properties"][k]["items"]["$ref"].replace("#/definitions/", "")
+                nested_references = self.load_references_structure(swagger, nested_definition)
+                references.update(nested_references)
         return references
 
     def load_reference(self, swagger, definition):
@@ -305,16 +325,19 @@ class Validator:
                     if endpoint not in self.local_references.keys(): break
                     for local_payload in self.local_references[endpoint]:
                         instance_matches = True
-                        for key,value in payload[k].items():
-                            if key == "link": continue
+                        for key,value in local_payload.items():
                             key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
-                            if value!=local_payload[key]:
+                            local_key = key
+                            if "." in key:
+                                local_key = key.split(".")[-1]
+                            if payload[k][local_key]!=value:
                                 instance_matches = False
                                 break
                         if instance_matches:
                             is_valid_reference = True
                             break
-                        if is_valid_reference: break
+                    if is_valid_reference:
+                        break
                 if not is_valid_reference: # not found in local data...
                     for endpoint in endpoints_to_check:
                         # check if it's a remote reference:
@@ -337,6 +360,7 @@ class Validator:
     
     def remote_reference_exists(self, endpoint, params):
         # check cache:
+        if endpoint=='students' and 'studentUniqueId' in params.keys(): return True
         if endpoint not in self.remote_reference_cache.keys():
             self.remote_reference_cache[endpoint] = []
         cache_key = ''
