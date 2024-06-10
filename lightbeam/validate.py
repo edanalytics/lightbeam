@@ -12,12 +12,11 @@ from lightbeam import hashlog
 class Validator:
 
     MAX_VALIDATION_ERRORS_TO_DISPLAY = 10
-    MAX_VALIDATE_TASK_QUEUE_SIZE = 50
+    MAX_VALIDATE_TASK_QUEUE_SIZE = 100
     DEFAULT_VALIDATION_METHODS = ["schema", "descriptors", "uniqueness"]
 
     EDFI_GENERICS_TO_RESOURCES_MAPPING = {
         "educationOrganizations": ["localEducationAgencies", "stateEducationAgencies", "schools"],
-        "objectiveAssessment": [""]
     }
     EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING = {
         "educationOrganizationId": {
@@ -45,8 +44,14 @@ class Validator:
             self.lightbeam.reset_counters()
             self.load_local_descriptors()
         
-        endpoints = self.lightbeam.endpoints
-        for endpoint in endpoints:
+        endpoints_with_data = self.lightbeam.get_endpoints_with_data()
+        self.lightbeam.endpoints = self.lightbeam.api.apply_filters(endpoints_with_data)
+
+        # structures for local and remote reference lookups to prevent repeated lookups for the same thing
+        self.remote_reference_cache = {}
+        self.local_reference_cache = {}
+
+        for endpoint in self.lightbeam.endpoints:
             if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references:
                 # We don't want every `do_validate_payload()` to separately have to open and scan
                 # local files looking for a matching payload; this pre-loads local data that
@@ -54,19 +59,24 @@ class Validator:
                 # We assume that the data fits in memory; the largest Ed-Fi endpoints
                 # (studentSectionAssociations, studentSchoolAttendanceEvents, etc.) contain references
                 # to comparatively datasets (sections, schools, students).
-                self.load_local_reference_data(endpoint)
-                # create a structure which remote reference lookups can populate to prevent repeated lookups for the same thing
-                self.remote_reference_cache = {}
+                self.build_local_reference_cache(endpoint)
             asyncio.run(self.validate_endpoint(endpoint))
     
-    def load_local_reference_data(self, endpoint):
-        self.local_references = {}
+    def build_local_reference_cache(self, endpoint):
         swagger = self.lightbeam.api.resources_swagger
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         references_structure = self.load_references_structure(swagger, definition)
         references_structure = self.rebalance_local_references_structure(references_structure)
-        references_data = self.load_references_data(references_structure)
-        self.local_references.update(references_data)
+        # more memory-efficient to load local data and populate cache for one endpoint at a time:
+        for original_endpoint in references_structure.keys():
+            endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
+            for endpoint in endpoints_to_check:
+                if endpoint in self.local_reference_cache.keys():
+                    # already loaded (when validating another endpoint); no need to reload
+                    continue
+                self.logger.debug(f"(discovering any local data for {endpoint}...)")
+                endpoint_data = self.load_references_data(endpoint, references_structure)
+                self.local_reference_cache[endpoint] = self.references_data_to_cache(endpoint, endpoint_data, references_structure)
 
     # this is (unfortunately) necessary to allow lookup of nested references in local payload
     # (for remote reference lookup, a flat dict of keys is passed to the Ed-Fi API and it takes care of nesting)
@@ -80,29 +90,37 @@ class Validator:
                 references_structure["objectiveAssessments"].append("assessmentReference.namespace")
         return references_structure
 
-    def load_references_data(self, references_structure):
-        data = {}
-        for original_endpoint in references_structure.keys():
-            endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
-            for endpoint in endpoints_to_check:
-                data[endpoint] = []
-                data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
-                for file_name in data_files:
-                    with open(file_name) as file:
-                        for line_counter, line in enumerate(file):
-                            line = line.strip()
-                            try:
-                                payload = json.loads(line)
-                            except Exception as e:
-                                self.logger.warning(f"... (ignoring invalid JSON payload at {line_counter} of {file_name})")
-                            ref_payload = {}
-                            for key in references_structure[endpoint]:
-                                key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
-                                tmpdata = payload
-                                for subkey in key.split("."):
-                                    tmpdata = tmpdata[subkey]
-                                ref_payload[key] = tmpdata
-                            data[endpoint].append(ref_payload)
+    def references_data_to_cache(self, endpoint, endpoint_data, references_structure):
+        cache = []
+        structure = references_structure[endpoint]
+        for payload in endpoint_data:
+            sorted_keys = structure.copy()
+            sorted_keys.sort(key=lambda x: x.split(".")[-1])
+            cache_key = ''
+            for key in sorted_keys:
+                cache_key += f"{payload[key]}~~~"
+            cache.append(cache_key)
+        return cache
+
+    def load_references_data(self, endpoint, references_structure):
+        data = []
+        data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
+        for file_name in data_files:
+            with open(file_name) as file:
+                for line_counter, line in enumerate(file):
+                    line = line.strip()
+                    try:
+                        payload = json.loads(line)
+                    except Exception as e:
+                        self.logger.warning(f"... (ignoring invalid JSON payload at {line_counter} of {file_name})")
+                    ref_payload = {}
+                    for key in references_structure[endpoint]:
+                        key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
+                        tmpdata = payload
+                        for subkey in key.split("."):
+                            tmpdata = tmpdata[subkey]
+                        ref_payload[key] = tmpdata
+                    data.append(ref_payload)
         return data
 
     def load_references_structure(self, swagger, definition):
@@ -171,6 +189,8 @@ class Validator:
                     if total_counter%self.MAX_VALIDATE_TASK_QUEUE_SIZE==0:
                         await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
                         tasks = []
+                        if total_counter%1000==0:
+                            self.logger.info(f"(processed {total_counter}...)")
                     
                     # implement "fail fast" feature:
                     if self.lightbeam.num_errors >= fail_fast_threshold:
@@ -322,21 +342,11 @@ class Validator:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
                 for endpoint in endpoints_to_check:
                     # check if it's a local reference:
-                    if endpoint not in self.local_references.keys(): break
-                    for local_payload in self.local_references[endpoint]:
-                        instance_matches = True
-                        for key,value in local_payload.items():
-                            key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
-                            local_key = key
-                            if "." in key:
-                                local_key = key.split(".")[-1]
-                            if payload[k][local_key]!=value:
-                                instance_matches = False
-                                break
-                        if instance_matches:
-                            is_valid_reference = True
-                            break
-                    if is_valid_reference:
+                    if endpoint not in self.local_reference_cache.keys(): break
+                    # construct cache_key for reference
+                    cache_key = self.get_cache_key(payload[k])
+                    if cache_key in self.local_reference_cache[endpoint]:
+                        is_valid_reference = True
                         break
                 if not is_valid_reference: # not found in local data...
                     for endpoint in endpoints_to_check:
@@ -357,15 +367,19 @@ class Validator:
             if row[1]==namespace and row[2]==codeValue:
                 return True
         return False
+
+    @staticmethod
+    def get_cache_key(payload):
+        cache_key = ''
+        for k in payload.keys():
+            cache_key += f"{payload[k]}~~~"
+        return cache_key
     
     def remote_reference_exists(self, endpoint, params):
         # check cache:
-        if endpoint=='students' and 'studentUniqueId' in params.keys(): return True
         if endpoint not in self.remote_reference_cache.keys():
             self.remote_reference_cache[endpoint] = []
-        cache_key = ''
-        for k in sorted(params.keys()):
-            cache_key += f"{params[k]}-"
+        cache_key = self.get_cache_key(params)
         if cache_key in self.remote_reference_cache[endpoint]:
             return True
         # do remote lookup
@@ -381,6 +395,8 @@ class Validator:
                     )
                 body = response.text
                 status = str(response.status_code)
+                if status!='401':
+                    self.lightbeam.increment_status_counts(status)
                 if status=='401':
                     # this could be broken out to a separate function call,
                     # but not doing so should help keep the critical section small
