@@ -28,12 +28,16 @@ def singularize_endpoint(endpoint):
     if endpoint[-3:]=="ies": return endpoint[0:-3] + "y"
     elif endpoint=="people": return "person"
     else: return endpoint[0:-1]
+def pluralize_endpoint(endpoint):
+    if endpoint[-1:]=="y": return endpoint[0:-1] + "ies"
+    elif endpoint=="person": return "people"
+    else: return endpoint+"s"
 
 # Takes a params structure and interpolates values from a (string) JSON payload
 def interpolate_params(params_structure, payload):
     params = {}
     for k,v in params_structure.items():
-        value = json.loads(payload)
+        value = payload.copy()
         for key in v.split('.'):
             value = value[key]
         params[k] = value

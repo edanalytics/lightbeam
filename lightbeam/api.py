@@ -53,10 +53,10 @@ class EdFiAPI:
             self.config["open_api_metadata_url"] = api_base["urls"]["openApiMetadata"]
 
         # load all endpoints in dependency-order
-        all_endpoints = self.get_sorted_endpoints()
+        self.lightbeam.all_endpoints = self.get_sorted_endpoints()
 
         # filter down to only selected endpoints
-        self.lightbeam.endpoints = self.apply_filters(all_endpoints)
+        self.lightbeam.endpoints = self.apply_filters(self.lightbeam.all_endpoints)
 
 
     def apply_filters(self, endpoints=[]):
