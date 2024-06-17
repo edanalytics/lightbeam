@@ -154,16 +154,18 @@ The `references` `method` can be slow, as a separate `GET` request may be made t
 * batching requests and sending several concurrently (based on `connection`.`pool_size` of `lightbeam.yaml`)
 * caching responses and first checking the cache before making another (potentially identical) request
 
-Even with these optimizations, checking `references` can easily take minutes for even relatively small amounts of data. Therefore `lightbeam.yaml` also accepts two further configuration options:
+Even with these optimizations, checking `references` can easily take minutes for even relatively small amounts of data. Therefore `lightbeam.yaml` also accepts a further configuration option:
 ```yaml
 validate:
   references:
     max_failures: 10 # stop testing after X failed payloads ("fail fast")
-    partial: 500 # stop testing if 100% success after X payloads ("succeed fast")
 ```
-These are optional; if absent, references in every payload are checked, no matter how many fail or succeed, respectively.
+This is optional; if absent, references in every payload are checked, no matter how many fail.
 
-**Note:** Reference validation efficiency may be improved by first `lightbeam fetch`ing certain resources to have a local copy. `lightbeam validate` checks local JSONL files to resolve references before trying the remote API, and `fetch` retrieves many records per  `GET`, so total runtime can be faster in this scenario. The downsides are more data movement and the local data becoming stale over time.
+**Note:** Reference validation efficiency may be improved by first `lightbeam fetch`ing certain resources to have a local copy. `lightbeam validate` checks local JSONL files to resolve references before trying the remote API, and `fetch` retrieves many records per  `GET`, so total runtime can be faster in this scenario. The downsides include
+* more data movement
+* `fetch`ed data becoming stale over time
+* needing to track which data is your own vs. was `fetch`ed (all the data must coexist in the `config.data_dir` to be discoverable by `lightbeam validate`)
 
 
 ## `send`

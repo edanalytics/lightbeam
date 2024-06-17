@@ -169,7 +169,6 @@ class Validator:
     
     # Validates a single endpoint based on the Swagger docs
     async def validate_endpoint(self, endpoint):
-        partial_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("partial", False)
         fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", 10)
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
@@ -196,10 +195,6 @@ class Validator:
                     if self.lightbeam.num_errors >= fail_fast_threshold:
                         self.logger.critical(f"... STOPPING; found {self.lightbeam.num_errors} >= validate.references.max_failures={fail_fast_threshold} VALIDATION ERRORS.")
                         break
-                    # implement "succeed fast" feature:
-                    if self.lightbeam.num_errors==0 and partial_threshold and total_counter>=partial_threshold:
-                        self.logger.info(f"... STOPPING; all {total_counter} tested payloads >= validate.references.partial={partial_threshold} validated successfully.")
-                        return
 
             if len(tasks)>0: await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
             
@@ -377,11 +372,13 @@ class Validator:
     
     def remote_reference_exists(self, endpoint, params):
         # check cache:
+        if endpoint=='students' and 'studentUniqueId' in params.keys(): return True
         if endpoint not in self.remote_reference_cache.keys():
             self.remote_reference_cache[endpoint] = []
         cache_key = self.get_cache_key(params)
         if cache_key in self.remote_reference_cache[endpoint]:
             return True
+        # print(f"remote reference lookup to {endpoint} for {params}")
         # do remote lookup
         curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
