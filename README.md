@@ -30,6 +30,10 @@ Guides and Resources -->
 pip install lightbeam
 ```
 
+If installing from a branch, for example:
+```
+pip install git+https://github.com/edanalytics/lightbeam.git@feature/reference_validation
+```
 
 # Setup
 Running the tool requires
