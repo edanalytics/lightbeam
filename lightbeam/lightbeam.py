@@ -154,7 +154,7 @@ class Lightbeam:
     def confirm_delete(self, endpoints):
         self._confirm_delete_op(endpoints, "delete")
 
-    def confirm_delete(self, endpoints):
+    def confirm_truncate(self, endpoints):
         self._confirm_delete_op(endpoints, "TRUNCATE ALL DATA")
 
     ################### Data discovery and loading methods ####################
