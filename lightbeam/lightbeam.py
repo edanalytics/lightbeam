@@ -143,7 +143,7 @@ class Lightbeam:
                 )
     
     def _confirm_delete_op(self, endpoints, verbiage):
-        if self.lightbeam.config.get("force_delete", False):
+        if self.config.get("force_delete", False):
             return
 
         endpoint_list = "\n\t".join(endpoints)
