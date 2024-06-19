@@ -17,11 +17,6 @@ class Deleter:
     
     # Deletes data matching payloads in config.data_dir for selected endpoints
     def delete(self):
-        # prompt to confirm this destructive operation
-        if not self.lightbeam.config.get("force_delete", False):
-            if input('Type "yes" to confirm you want to delete payloads for the selected endpoints? ')!="yes":
-                exit('You did not type "yes" - exiting.')
-        
         # load swagger docs, so we can find natural keys for each resource and query the API for existing records to delete
         self.lightbeam.api.load_swagger_docs()
         
@@ -36,6 +31,9 @@ class Deleter:
         # process endpoints in reverse-dependency order, so we don't get dependency errors
         endpoints = copy.deepcopy(endpoints)
         endpoints.reverse()
+
+        # prompt to confirm this destructive operation
+        self.lightbeam.confirm_delete(endpoints)
 
         for endpoint in endpoints:
             # it doesn't seem possible to delete students once you've sent them

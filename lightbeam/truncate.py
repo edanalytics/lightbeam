@@ -17,17 +17,15 @@ class Truncator:
     
     # Deletes all data in the Ed-Fi API for selected endpoints
     def truncate(self):
-        # prompt to confirm this destructive operation
-        if not self.lightbeam.config.get("force_delete", False):
-            if input('Type "yes" to confirm you want to TRUNCATE ALL DATA payloads for the selected endpoints? ')!="yes":
-                exit('You did not type "yes" - exiting.')
-        
         # get token with which to send requests
         self.lightbeam.api.do_oauth()
 
         # process endpoints in reverse-dependency order, so we don't get dependency errors
         endpoints = self.lightbeam.endpoints
         endpoints.reverse()
+
+        # prompt to confirm this destructive operation
+        self.lightbeam.confirm_truncate(endpoints)
 
         for endpoint in endpoints:
             # it doesn't seem possible to delete students once you've sent them

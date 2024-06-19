@@ -141,7 +141,21 @@ class Lightbeam:
                     or (self.newer_than and tuple[0]>self.newer_than)
                     or (len(self.resend_status_codes)>0 and tuple[1] in self.resend_status_codes)
                 )
+    
+    def _confirm_delete_op(self, endpoints, verbiage):
+        if self.lightbeam.config.get("force_delete", False):
+            return
 
+        endpoint_list = "\n\t".join(endpoints)
+        self.logger.info(f'Preparing to delete the following endpoints:\n{endpoint_list}')
+        if input(f'Type "yes" to confirm you want to {verbiage} payloads for the selected endpoints? ')!="yes":
+            exit('You did not type "yes" - exiting.')
+
+    def confirm_delete(self, endpoints):
+        self._confirm_delete_op(endpoints, "delete")
+
+    def confirm_delete(self, endpoints):
+        self._confirm_delete_op(endpoints, "TRUNCATE ALL DATA")
 
     ################### Data discovery and loading methods ####################
     
