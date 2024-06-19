@@ -147,7 +147,7 @@ class Lightbeam:
             return
 
         endpoint_list = "\n\t".join(endpoints)
-        self.logger.info(f'Preparing to delete the following endpoints:\n{endpoint_list}')
+        self.logger.info(f'Preparing to delete the following endpoints:\n\t{endpoint_list}')
         if input(f'Type "yes" to confirm you want to {verbiage} payloads for the selected endpoints? ')!="yes":
             exit('You did not type "yes" - exiting.')
 
