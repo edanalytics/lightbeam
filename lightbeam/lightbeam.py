@@ -146,7 +146,7 @@ class Lightbeam:
         if self.config.get("force_delete", False):
             return
 
-        endpoint_list = "\n\t • ".join(endpoints)
+        endpoint_list = "\n\t - ".join(endpoints)
         print(f'Preparing to delete the following endpoints:\n\t • {endpoint_list}')
         if input(f'Type "yes" to confirm you want to {verbiage} payloads for the selected endpoints? ')!="yes":
             exit('You did not type "yes" - exiting.')
