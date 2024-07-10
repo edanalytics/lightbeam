@@ -34,7 +34,7 @@ class Validator:
     # Validates (selected) endpoints
     def validate(self):
         # The below should go in __init__(), but rely on lightbeam.config which is not yet available there.
-        self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", DEFAULT_FAIL_FAST_THRESHOLD)
+        self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", self.DEFAULT_FAIL_FAST_THRESHOLD)
         self.validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
         if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
             validation_methods = self.DEFAULT_VALIDATION_METHODS
