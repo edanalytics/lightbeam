@@ -30,14 +30,16 @@ class Validator:
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
         self.logger = self.lightbeam.logger
+        
+    # Validates (selected) endpoints
+    def validate(self):
+        # The below should go in __init__(), but rely on lightbeam.config which is not yet available there.
         self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", DEFAULT_FAIL_FAST_THRESHOLD)
         self.validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
         if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
             validation_methods = self.DEFAULT_VALIDATION_METHODS
             validation_methods.append("references")
         
-    # Validates (selected) endpoints
-    def validate(self):
         self.lightbeam.api.load_swagger_docs()
         self.logger.info(f"validating by methods {self.validation_methods}...")
         if "descriptors" in self.validation_methods:
