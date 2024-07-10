@@ -14,6 +14,7 @@ class Validator:
     MAX_VALIDATION_ERRORS_TO_DISPLAY = 10
     MAX_VALIDATE_TASK_QUEUE_SIZE = 100
     DEFAULT_VALIDATION_METHODS = ["schema", "descriptors", "uniqueness"]
+    DEFAULT_FAIL_FAST_THRESHOLD = 10
 
     EDFI_GENERICS_TO_RESOURCES_MAPPING = {
         "educationOrganizations": ["localEducationAgencies", "stateEducationAgencies", "schools"],
@@ -29,16 +30,17 @@ class Validator:
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
         self.logger = self.lightbeam.logger
-    
+        self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", DEFAULT_FAIL_FAST_THRESHOLD)
+        self.validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
+        if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
+            validation_methods = self.DEFAULT_VALIDATION_METHODS
+            validation_methods.append("references")
+        
     # Validates (selected) endpoints
     def validate(self):
         self.lightbeam.api.load_swagger_docs()
-        validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
-        if type(validation_methods)==str and validation_methods=="*":
-            validation_methods = self.DEFAULT_VALIDATION_METHODS
-            validation_methods.append("references")
-        self.logger.info(f"validating by methods {validation_methods}...")
-        if "descriptors" in validation_methods:
+        self.logger.info(f"validating by methods {self.validation_methods}...")
+        if "descriptors" in self.validation_methods:
             # load remote descriptors
             asyncio.run(self.lightbeam.api.load_descriptors_values())
             self.lightbeam.reset_counters()
@@ -52,7 +54,7 @@ class Validator:
         self.local_reference_cache = {}
 
         for endpoint in self.lightbeam.endpoints:
-            if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references:
+            if "references" in self.validation_methods and "Descriptor" not in endpoint: # Descriptors have no references:
                 # We don't want every `do_validate_payload()` to separately have to open and scan
                 # local files looking for a matching payload; this pre-loads local data that
                 # might resolve references from within payloads of this endpoint.
@@ -169,7 +171,6 @@ class Validator:
     
     # Validates a single endpoint based on the Swagger docs
     async def validate_endpoint(self, endpoint):
-        fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", 10)
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
         tasks = []
@@ -185,14 +186,14 @@ class Validator:
                     tasks.append(asyncio.create_task(
                         self.do_validate_payload(endpoint, file_name, data, line_counter)))
                 
-                    if total_counter%self.MAX_VALIDATE_TASK_QUEUE_SIZE==0:
+                    if len(tasks) >= self.MAX_VALIDATE_TASK_QUEUE_SIZE:
                         await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
                         tasks = []
                         if total_counter%1000==0:
                             self.logger.info(f"(processed {total_counter}...)")
                     
                     # implement "fail fast" feature:
-                    if self.lightbeam.num_errors >= fail_fast_threshold:
+                    if self.lightbeam.num_errors >= self.fail_fast_threshold:
                         self.logger.critical(f"... STOPPING; found {self.lightbeam.num_errors} >= validate.references.max_failures={fail_fast_threshold} VALIDATION ERRORS.")
                         break
 
@@ -207,10 +208,6 @@ class Validator:
 
 
     async def do_validate_payload(self, endpoint, file_name, data, line_counter):
-        validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
-        if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
-            validation_methods = self.DEFAULT_VALIDATION_METHODS
-            validation_methods.append("references")
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         if "Descriptor" in endpoint:
             swagger = self.lightbeam.api.descriptors_swagger
@@ -239,7 +236,7 @@ class Validator:
             return
 
         # check payload obeys Swagger schema
-        if "schema" in validation_methods:
+        if "schema" in self.validation_methods:
             try:
                 validator.validate(payload)
             except Exception as e:
@@ -252,7 +249,7 @@ class Validator:
                 return
 
         # check descriptor values are valid
-        if "descriptors" in validation_methods:
+        if "descriptors" in self.validation_methods:
             error_message = self.has_invalid_descriptor_values(payload, path="")
             if error_message != "":
                 if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
@@ -261,7 +258,7 @@ class Validator:
                 return
 
         # check natural keys are unique
-        if "uniqueness" in validation_methods:
+        if "uniqueness" in self.validation_methods:
             params = json.dumps(util.interpolate_params(params_structure, payload))
             params_hash = hashlog.get_hash(params)
             if params_hash in distinct_params:
@@ -272,7 +269,7 @@ class Validator:
             else: distinct_params.append(params_hash)
 
         # check references values are valid
-        if "references" in validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
+        if "references" in self.validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
             self.lightbeam.api.do_oauth()
             error_message = self.has_invalid_references(payload, path="")
             if error_message != "":
