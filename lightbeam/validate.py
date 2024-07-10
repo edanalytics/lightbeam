@@ -36,9 +36,9 @@ class Validator:
         # The below should go in __init__(), but rely on lightbeam.config which is not yet available there.
         self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", self.DEFAULT_FAIL_FAST_THRESHOLD)
         self.validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
-        if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
-            validation_methods = self.DEFAULT_VALIDATION_METHODS
-            validation_methods.append("references")
+        if type(self.validation_methods)==str and (self.validation_methods=="*" or self.validation_methods.lower()=='all'):
+            self.validation_methods = self.DEFAULT_VALIDATION_METHODS
+            self.validation_methods.append("references")
         
         self.lightbeam.api.load_swagger_docs()
         self.logger.info(f"validating by methods {self.validation_methods}...")
