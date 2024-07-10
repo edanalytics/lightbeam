@@ -145,8 +145,6 @@ validate:
     - references # checks that references resolve, either locally or in the remote API
   # or
   # methods: "*"
-  # or
-  # methods: ALL
 ```
 Default `validate`.`methods` are `["schema", "descriptors", "uniqueness"]` (not `references`; see below). In addition to the above methods, `lighteam validate` will also (first) check that each payload is valid JSON.
 

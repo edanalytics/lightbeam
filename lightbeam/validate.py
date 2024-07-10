@@ -34,7 +34,7 @@ class Validator:
     def validate(self):
         self.lightbeam.api.load_swagger_docs()
         validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
-        if type(validation_methods)==str and (validation_methods=="*" or validation_methods.lower()=='all'):
+        if type(validation_methods)==str and validation_methods=="*":
             validation_methods = self.DEFAULT_VALIDATION_METHODS
             validation_methods.append("references")
         self.logger.info(f"validating by methods {validation_methods}...")
@@ -58,7 +58,7 @@ class Validator:
                 # might resolve references from within payloads of this endpoint.
                 # We assume that the data fits in memory; the largest Ed-Fi endpoints
                 # (studentSectionAssociations, studentSchoolAttendanceEvents, etc.) contain references
-                # to comparatively datasets (sections, schools, students).
+                # to comparatively small datasets (sections, schools, students).
                 self.build_local_reference_cache(endpoint)
             asyncio.run(self.validate_endpoint(endpoint))
     
@@ -372,7 +372,6 @@ class Validator:
     
     def remote_reference_exists(self, endpoint, params):
         # check cache:
-        if endpoint=='students' and 'studentUniqueId' in params.keys(): return True
         if endpoint not in self.remote_reference_cache.keys():
             self.remote_reference_cache[endpoint] = []
         cache_key = self.get_cache_key(params)
