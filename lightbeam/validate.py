@@ -208,6 +208,7 @@ class Validator:
 
 
     async def do_validate_payload(self, endpoint, file_name, data, line_counter):
+        if self.lightbeam.num_errors >= self.fail_fast_threshold: return
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         if "Descriptor" in endpoint:
             swagger = self.lightbeam.api.descriptors_swagger
