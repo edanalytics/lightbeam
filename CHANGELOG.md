@@ -1,3 +1,12 @@
+### v0.1.4
+<details>
+<summary>Released 2024-07-12</summary>
+
+* feature: [reference validation](https://github.com/edanalytics/lightbeam/pull/30)
+* feature: [notify user of endpoints to be `delete`d](https://github.com/edanalytics/lightbeam/pull/37)
+* bugfix: [handle descriptors with missing (optional) description](https://github.com/edanalytics/lightbeam/pull/38)
+</details>
+
 ### v0.1.3
 <details>
 <summary>Released 2024-06-03</summary>
