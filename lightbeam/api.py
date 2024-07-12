@@ -294,7 +294,7 @@ class EdFiAPI:
                 descriptor = ""
                 for key in v.keys():
                     if key.endswith("Id"): descriptor = key[0:-2]
-                self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v["description"]])
+                self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v.get("description", "")])
             
             # save
             if self.lightbeam.track_state:
