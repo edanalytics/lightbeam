@@ -4,6 +4,7 @@ import json
 import asyncio
 from urllib.parse import urlencode
 from lightbeam import util
+from lightbeam.api import EdFiAPI
 
 class Fetcher:
 
@@ -16,7 +17,7 @@ class Fetcher:
         asyncio.run(self.get_records())
     
     async def get_records(self, do_write=True, log_status_counts=True):
-        self.lightbeam.api.do_oauth()
+        EdFiAPI.do_oauth()
         self.lightbeam.reset_counters()
         self.logger.debug(f"fetching records...")
 
@@ -64,7 +65,7 @@ class Fetcher:
                     util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
                     params=urlencode(params),
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                    headers=self.lightbeam.api.headers
+                    headers=EdFiAPI.headers
                     ) as response:
                     body = await response.text()
                     status = str(response.status)
@@ -73,7 +74,7 @@ class Fetcher:
                         # but not doing so should help keep the critical section small
                         if self.lightbeam.token_version == curr_token_version:
                             self.lightbeam.lock.acquire()
-                            self.lightbeam.api.update_oauth()
+                            EdFiAPI.update_oauth()
                             self.lightbeam.lock.release()
                         else:
                             await asyncio.sleep(1)

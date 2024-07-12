@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 from lightbeam import util
+from lightbeam.api import EdFiAPI
 
 class Counter:
 
@@ -37,7 +38,7 @@ class Counter:
                     print(str(result[1]) + self.lightbeam.config["count"]["separator"] + result[0])
     
     async def get_record_counts(self):
-        self.lightbeam.api.do_oauth()
+        EdFiAPI.do_oauth()
         self.lightbeam.reset_counters()
         self.logger.debug(f"fetching record counts...")
 

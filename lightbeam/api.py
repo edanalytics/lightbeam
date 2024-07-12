@@ -16,6 +16,9 @@ class EdFiAPI:
 
     SWAGGER_CACHE_TTL = 2629800 # one month in seconds
     DESCRIPTORS_CACHE_TTL = 2629800 # one month in seconds
+
+    token = None
+    headers = None
     
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
@@ -91,33 +94,35 @@ class EdFiAPI:
             )
     
     # Obtains an OAuth token from the API and sets the client headers accordingly
-    def do_oauth(self):
+    @classmethod
+    def do_oauth(cls):
         try:
             token_response = requests.post(
-                self.config["oauth_url"],
+                cls.config["oauth_url"],
                 data={"grant_type":"client_credentials"},
                 auth=(
-                    self.config["client_id"],
-                    self.config["client_secret"]
+                    cls.config["client_id"],
+                    cls.config["client_secret"]
                     ),
-                verify=self.lightbeam.config["connection"]["verify_ssl"])
-            self.token = token_response.json()["access_token"]
-            self.headers = {
+                verify=cls.lightbeam.config["connection"]["verify_ssl"])
+            cls.token = token_response.json()["access_token"]
+            cls.headers = {
                     "accept": "application/json",
                     "Content-Type": "application/json",
-                    "authorization": "Bearer " + self.token
+                    "authorization": "Bearer " + cls.token
                 }
         except Exception as e:
-            self.logger.error(f"OAuth token could not be obtained; check your API credentials?")
+            cls.logger.error(f"OAuth token could not be obtained; check your API credentials?")
 
-    def update_oauth(self):
-        self.logger.debug("fetching new OAuth token due to a 401 response...")
-        self.lightbeam.token_version += 1
-        self.do_oauth()
-        self.headers = {
+    @classmethod
+    def update_oauth(cls):
+        cls.logger.debug("fetching new OAuth token due to a 401 response...")
+        cls.lightbeam.token_version += 1
+        cls.do_oauth()
+        cls.headers = {
             "accept": "application/json",
             "Content-Type": "application/json",
-            "authorization": "Bearer " + self.token
+            "authorization": "Bearer " + cls.token
         }
 
 

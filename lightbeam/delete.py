@@ -5,7 +5,7 @@ import asyncio
 
 from lightbeam import util
 from lightbeam import hashlog
-
+from lightbeam.api import EdFiAPI
 
 class Deleter:
 
@@ -26,7 +26,7 @@ class Deleter:
         self.lightbeam.api.load_swagger_docs()
         
         # get token with which to send requests
-        self.lightbeam.api.do_oauth()
+        EdFiAPI.do_oauth()
 
         # filter down to selected endpoints that actually have .jsonl in config.data_dir
         endpoints = self.lightbeam.get_endpoints_with_data(self.lightbeam.endpoints)
@@ -149,7 +149,7 @@ class Deleter:
                         util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
                         params=params,
                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                        headers=self.lightbeam.api.headers
+                        headers=EdFiAPI.headers
                         ) as get_response:
                         body = await get_response.text()
                         status = get_response.status
@@ -178,7 +178,7 @@ class Deleter:
                             # but not doing so should help keep the critical section small
                             if self.lightbeam.token_version == curr_token_version:
                                 self.lightbeam.lock.acquire()
-                                self.lightbeam.api.update_oauth()
+                                EdFiAPI.update_oauth()
                                 self.lightbeam.lock.release()
                             else:
                                 await asyncio.sleep(1)

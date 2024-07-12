@@ -5,6 +5,7 @@ import asyncio
 
 from lightbeam import util
 from lightbeam import hashlog
+from lightbeam.api import EdFiAPI
 
 
 class Truncator:
@@ -23,7 +24,7 @@ class Truncator:
                 exit('You did not type "yes" - exiting.')
         
         # get token with which to send requests
-        self.lightbeam.api.do_oauth()
+        EdFiAPI.do_oauth()
 
         # process endpoints in reverse-dependency order, so we don't get dependency errors
         endpoints = self.lightbeam.endpoints

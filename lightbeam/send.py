@@ -7,6 +7,7 @@ import datetime
 
 from lightbeam import util
 from lightbeam import hashlog
+from lightbeam.api import EdFiAPI
 
 
 class Sender:
@@ -33,7 +34,7 @@ class Sender:
         }
 
         # get token with which to send requests
-        self.lightbeam.api.do_oauth()
+        EdFiAPI.do_oauth()
 
         # filter down to selected endpoints that actually have .jsonl in config.data_dir
         endpoints = self.lightbeam.get_endpoints_with_data(self.lightbeam.endpoints)
@@ -178,7 +179,7 @@ class Sender:
                     util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
                     data=data,
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                    headers=self.lightbeam.api.headers
+                    headers=EdFiAPI.headers
                     ) as response:
                     body = await response.text()
                     status = response.status
@@ -231,7 +232,7 @@ class Sender:
                         # but not doing so should help keep the critical section small
                         if self.lightbeam.token_version == curr_token_version:
                             self.lightbeam.lock.acquire()
-                            self.lightbeam.api.update_oauth()
+                            EdFiAPI.update_oauth()
                             self.lightbeam.lock.release()
                         else:
                             await asyncio.sleep(1)
