@@ -1,0 +1,21 @@
+data_dir: ${BASE_DIR}/data/
+namespace: ed-fi
+edfi_api:
+  base_url: ${BASE_URL}
+  version: 3 # or 2, although this isn't really supported
+  mode: sandbox # or year_specific
+  year: 2024 # for year_specific mode
+  client_id: ${CLIENT_ID} # default for Docker sandbox API
+  client_secret: ${CLIENT_SECRET} # default for Docker sandbox API
+connection:
+  pool_size: 8 # simultaneous connections
+  timeout: 60 # seconds
+  num_retries: 10
+  retry_statuses: [429, 500, 501, 503, 504]
+  backoff_factor: 1.5
+  verify_ssl: False
+log_level: INFO
+show_stacktrace: True
+force_delete: True
+validate:
+  methods: "*"
