@@ -60,10 +60,6 @@ def main(argv=None):
         action='store_true',
         help='view tool version'
         )
-    parser.add_argument("-t", "--test",
-        action='store_true',
-        help="run test suite"
-    )
     parser.add_argument("-s", "--selector",
         nargs='?',
         help='sepecify a subset of resources to process'
@@ -129,34 +125,6 @@ def main(argv=None):
             print(f"lightbeam, version {VERSION}")
         exit(0)
     
-    if args.test:
-        tests_dir = os.path.join( os.path.realpath(os.path.dirname(__file__)), "tests" )
-        
-        # Prompt for Ed-Fi API base_url, key, secret (with defaults)!
-        print("Welcome to the lightbeam test suite. This feature is intended for developer use.")
-        print("RUNNING THIS TEST SUITE WILL CAUSE CHANGES TO YOUR ED-FI DATA - USE WITH CAUTION!")
-        base_url = input("Enter your Ed-Fi API's base URL: [\"https://localhost/api\"]:") or "https://localhost/api"
-        client_id = input("Enter your API client ID: [\"populated\"]:") or "populated"
-        client_secret = input("Enter your API client secret: [\"populatedSecret\"]:") or "populatedSecret"
-
-        lb = Lightbeam(
-            config_file=os.path.join(tests_dir, "lightbeam.yaml"),
-            logger=logger,
-            selector="*",
-            exclude="",
-            keep_keys="*",
-            drop_keys="",
-            query="{}",
-            params='{"BASE_DIR": "' + tests_dir + '", "BASE_URL": "' + base_url + '", "CLIENT_ID": "' + client_id + '", "CLIENT_SECRET": "' + client_secret + '"}',
-            )
-        try:
-            lb.logger.info("running tests...")
-            lb.tester.test(tests_dir)
-            lb.logger.info('all tests passed successfully.')
-            exit(0)
-        except Exception as e:
-            logger.exception(e, exc_info=lb.config["show_stacktrace"])
-
 
     if args.command not in ALLOWED_COMMANDS.values():
         if args.command is None:

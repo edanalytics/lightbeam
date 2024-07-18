@@ -220,15 +220,6 @@ lightbeam -v
 lightbeam --version
 ```
 
-Run a test suite, which covers all lightbeam [commands](#usage), against a (test) Ed-Fi API with
-```bash
-lightbeam -t
-lightbeam --test
-```
-This prompts the user for a base URL, client ID, and client secret to use when running the tests. We recommend that the test suite is run against a [local Docker deployment of an Ed-Fi API](https://github.com/Ed-Fi-Alliance-OSS/Ed-Fi-ODS-Docker) with the Grand Bend sample dataset. The default base URL and credentials should work with such a local API.
-
-(Details about the tests the suite runs are documented in [`lightbeam/tests/README.md`](./lightbeam/tests/README.md).)
-
 
 # Features
 This tool includes several special features:

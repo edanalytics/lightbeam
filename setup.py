@@ -27,7 +27,6 @@ setuptools.setup (
     version = VERSION,
     #packages = find_packages(), # list of all packages
     packages = setuptools.find_namespace_packages(include=['lightbeam', 'lightbeam.*']),
-    include_package_data=True,
     # package_data={'lightbeam': ['resources/*.txt']},
     install_requires = install_requires,
     python_requires='>=3',

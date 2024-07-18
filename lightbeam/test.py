@@ -162,6 +162,8 @@ class Tester:
         for file in visible_files:
             os.remove( os.path.join( output_dir, file) )
         
+        return True
+    
     
     @staticmethod
     def num_nonempty_lines_in_jsonl_file(file):
