@@ -45,6 +45,7 @@ edfi_api:
   base_url: https://api.schooldistrict.org/v5.3/api
   oauth_url: https://api.schooldistrict.org/v5.3/api/oauth/token 
   dependencies_url: https://api.schooldistrict.org/v5.3/api/metadata/data/v3/2024/dependencies
+  open_api_metadata_url: https://api.schooldistrict.org/v5.3/api/metadata/
   descriptors_swagger_url: https://api.schooldistrict.org/v5.3/api/metadata/data/v3/2024/descriptors/swagger.json
   resources_swagger_url: https://api.schooldistrict.org/v5.3/api/metadata/data/v3/2024/resources/swagger.json
   version: 3
@@ -72,11 +73,12 @@ show_stacktrace: True
 * (optional) Specify the `namespace` to use when accessing the Ed-Fi API. The default is `ed-fi` but others include `tpdm` or custom values. To send data to multiple namespaces, you must use a YAML configuration file and `lightbeam send` for each.
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` which serves a JSON object specifying the paths to data endpoints, Swagger, and dependencies. The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://techdocs.ed-fi.org/display/EDFITOOLS/Docker+Deployment)), but the location varies depending on how Ed-Fi is deployed.
-  * If the metadata for a particular API is not located in the "default" location (at the root of the base_url), then ALL the following urls should be explicitly specified.  These can normally be left blank, unless you are encountering errors indicating that the metadata files cannot be found (such as "Could not parse response from [base_url]").
+  * Most Ed-Fi APIs publish other endpoints they provide in a JSON document at the base URL - `lighbteam` attempts to discover these. If, however, your API does not publish these URLs at the base, or you want to manually override any of them for any reason, you can specify the following:
     * (optional) `oauth_url` (usually [base_url]/oauth/token)
     * (optional) `dependencies_url` (usually [base_url]/metadata/data/v3/dependencies)
     * (optional) `descriptors_swagger_url` (usually [base_url]/metadata/data/v3/descriptors/swagger.json)
     * (optional) `resources_swagger_url` (usually [base_url]/metadata/data/v3/resources/swagger.json)
+    * (optional) `open_api_metadata_url` (usually [base_url]/metadata/) - this is ignored if both `descriptors_swagger_url` and `resources_swagger_url` are specified
   * The `version` as one of `3` or `2` (`2` is currently unsupported).
   * (optional) The `mode` as one of `shared_instance`, `sandbox`, `district_specific`, `year_specific`, or `instance_year_specific`.
   * (required if `mode` is `year_specific` or `instance_year_specific`) The `year` used to build the resource URL. The default is the current year.

@@ -42,15 +42,21 @@ class EdFiAPI:
         # then they don't need to be pulled from api metadata, so this section can be skipped.
         # This is most common if the api metadata json files are not in the "default" location.
         # Otherwise, pull urls from api metadata.
-        if self.config["oauth_url"] == "" or self.config["dependencies_url"]== "":
+        if (
+            self.config.get("oauth_url", "")==""
+            or self.config.get("dependencies_url", "")==""
+            or self.config.get("open_api_metadata_url", "")==""
+        ):
             try:
                 api_base = api_base.json()
+                if self.config.get("oauth_url", "")=="":
+                    self.config["oauth_url"] = api_base["urls"]["oauth"]
+                if self.config.get("dependencies_url", "")=="":
+                    self.config["dependencies_url"] = api_base["urls"]["dependencies"]
+                if self.config.get("open_api_metadata_url", "")=="":
+                    self.config["open_api_metadata_url"] = api_base["urls"]["openApiMetadata"]
             except Exception as e:
                 self.logger.critical("could not parse response from {0} ({1})".format(self.config["base_url"], str(e)))
-
-            self.config["oauth_url"] = api_base["urls"]["oauth"]
-            self.config["dependencies_url"] = api_base["urls"]["dependencies"]
-            self.config["open_api_metadata_url"] = api_base["urls"]["openApiMetadata"]
 
         # load all endpoints in dependency-order
         self.lightbeam.all_endpoints = self.get_sorted_endpoints()
@@ -168,22 +174,8 @@ class EdFiAPI:
     # Loads the Swagger JSON from the Ed-Fi API
     def load_swagger_docs(self):
 
-        # If the metadata URL is set (pulled from root metadata file earlier), then pull endpoint urls from metadata
-        if "open_api_metadata_url" in self.config.keys() and self.config["open_api_metadata_url"] != "":
-            # grab Descriptors and Resources swagger URLs
-            try:
-                self.logger.debug("fetching swagger docs...")
-                response = requests.get(self.config["open_api_metadata_url"],
-                                        verify=self.lightbeam.config["connection"]["verify_ssl"])
-                if not response.ok:
-                    raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
-                openapi = response.json()
-
-            except Exception as e:
-                self.logger.critical("Unable to load Swagger docs from API... terminating. Check API connectivity.")
-        
-        # If metadata URL is not found, set endpoint URLs from config file
-        else:
+        # If Swagger URLs are explicitly set, use them
+        if self.config.get("descriptors_swagger_url", "")!="" and self.config.get("resources_swagger_url", ""):
             openapi = [
                 {
                     "name": "descriptors",
@@ -194,6 +186,23 @@ class EdFiAPI:
                     "endpointUri": self.config["resources_swagger_url"],
                 }
             ]
+        # If the metadata URL is set (pulled from root metadata file earlier), then pull endpoint urls from metadata
+        elif self.config.get("open_api_metadata_url", "")!="":
+            # grab Descriptors and Resources swagger URLs
+            try:
+                self.logger.debug("fetching swagger docs...")
+                response = requests.get(self.config["open_api_metadata_url"],
+                                        verify=self.lightbeam.config["connection"]["verify_ssl"])
+                if not response.ok:
+                    raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
+                openapi = response.json()
+
+            except Exception as e:
+                self.logger.critical("Unable to load Swagger docs from API... terminating. Check your `edfi_api.open_api_metadata_url` and/or manually specify `edfi_api.descriptors_swagger_url` and `edfi_api.resources_swagger_url`.")
+        # We can only get here if the API doesn't publish its metadata AND the user didn't configure Swagger URLs
+        else:
+            self.logger.critical("Swagger docs for the API were not discoverable... please manually specify them in `lightbeam.yaml` as `edfi_api.descriptors_swagger_url` and `edfi_api.resources_swagger_url`.")
+            
 
         # load (or re-use cached) Descriptors and Resources swagger
         self.descriptors_swagger = None
