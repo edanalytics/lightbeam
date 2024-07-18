@@ -336,6 +336,12 @@ A sample results file could be:
                     "count": 14
                 }
             ],
+            "successes": [
+                {
+                    "status_code": 201,
+                    "count": 28
+                }
+            ],
             "records_processed": 50,
             "records_skipped": 0,
             "records_failed": 22
