@@ -174,7 +174,9 @@ class Lightbeam:
         return file_list
 
     # Prunes the list of endpoints down to those for which .jsonl files exist in the config.data_dir
-    def get_endpoints_with_data(self):
+    def get_endpoints_with_data(self, filter_endpoints=None):
+        if not filter_endpoints:
+            filter_endpoints = self.all_endpoints
         self.logger.debug("discovering data...")
         endpoints_with_data = []
         data_dir_list = os.listdir(self.config["data_dir"])
@@ -184,7 +186,11 @@ class Lightbeam:
                 filename = os.path.basename(data_dir_item)
                 extension = filename.rsplit(".", 1)[-1]
                 filename_without_extension = filename.rsplit(".", 1)[0]
-                if extension in self.DATA_FILE_EXTENSIONS and filename_without_extension in self.all_endpoints:
+                if (
+                    extension in self.DATA_FILE_EXTENSIONS # valid file extension
+                    and filename_without_extension in self.all_endpoints # valid endpoint
+                    and filename_without_extension in filter_endpoints # selected endpoint
+                ):
                     endpoints_with_data.append(filename_without_extension)
             elif os.path.isdir(data_dir_item_path):
                 if data_dir_item in self.all_endpoints:
@@ -195,7 +201,11 @@ class Lightbeam:
                         if os.path.isfile(sub_dir_item_path):
                             filename = os.path.basename(sub_dir_item)
                             extension = filename.rsplit(".", 1)[-1]
-                            if extension in self.DATA_FILE_EXTENSIONS:
+                            if (
+                                extension in self.DATA_FILE_EXTENSIONS # valid file extension
+                                and filename_without_extension in self.all_endpoints # valid endpoint
+                                and data_dir_item in filter_endpoints # selected endpoint
+                            ):
                                 has_data_file = True
                                 break
                     if has_data_file:
