@@ -163,6 +163,13 @@ class Sender:
             hashlog.save(hashlog_file, self.hashlog_data)
 
         # update metadata counts for this endpoint
+        statuses = self.lightbeam.status_counts.keys()
+        successes = []
+        for status in statuses:
+            if status>=200 and status<300:
+                successes.append({"status_code": status, "count": self.lightbeam.status_counts[status]})
+        if len(successes)>0:
+            self.metadata["resources"][endpoint].update({"successes": successes})
         self.metadata["resources"][endpoint].update({
             "records_processed": total_counter,
             "records_skipped": self.lightbeam.num_skipped,

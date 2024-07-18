@@ -174,7 +174,7 @@ class Lightbeam:
         return file_list
 
     # Prunes the list of endpoints down to those for which .jsonl files exist in the config.data_dir
-    def get_endpoints_with_data(self):
+    def get_endpoints_with_data(self, filter_endpoints=None):
         self.logger.debug("discovering data...")
         endpoints_with_data = []
         data_dir_list = os.listdir(self.config["data_dir"])
