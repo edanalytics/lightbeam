@@ -18,16 +18,19 @@ def test_suite():
     # Prompt for Ed-Fi API base_url, key, secret (with defaults)!
     logger.info("Welcome to the lightbeam test suite. This feature is intended for developer use.")
     logger.info("RUNNING THIS TEST SUITE WILL CAUSE CHANGES TO YOUR ED-FI DATA - USE WITH CAUTION!")
+    logger.info("")
 
-    # base_url = input("Enter your Ed-Fi API's base URL: [\"https://localhost/api\"]:") or "https://localhost/api"
-    # client_id = input("Enter your API client ID: [\"populated\"]:") or "populated"
-    # client_secret = input("Enter your API client secret: [\"populatedSecret\"]:") or "populatedSecret"
-    
     # Unfortunately it's not possible to solicit user input during a pytest,
-    # so we have to hard-code the ODS params to use for the test:
-    base_url = "https://localhost/api"
-    client_id = "populated"
-    client_secret = "populatedSecret"
+    # so we define these as environment variables:
+    base_url = os.environ.get('EDFI_API_BASE_URL', "https://localhost/api")
+    client_id = os.environ.get('EDFI_API_CLIENT_ID', "populated")
+    client_secret = os.environ.get('EDFI_API_CLIENT_SECRET', "populatedSecret")
+    
+    logger.info("Running with")
+    logger.info(f"- base_url={base_url} (modify via env var EDFI_API_BASE_URL)")
+    logger.info(f"- client_id={client_id} (modify via env var EDFI_API_CLIENT_ID)")
+    logger.info(f"- client_secret={client_secret[0:5]}... (modify via env var EDFI_API_CLIENT_SECRET)")
+    logger.info("")
 
     lb = Lightbeam(
         config_file=os.path.join(tests_dir, "lightbeam.yaml"),

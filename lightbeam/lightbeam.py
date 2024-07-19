@@ -9,6 +9,7 @@ from yaml.loader import SafeLoader
 
 from lightbeam import util
 from lightbeam.api import EdFiAPI
+from lightbeam.test import Tester
 from lightbeam.count import Counter
 from lightbeam.fetch import Fetcher
 from lightbeam.validate import Validator
@@ -71,6 +72,7 @@ class Lightbeam:
         self.resend_status_codes=resend_status_codes
         self.endpoints = []
         self.results = []
+        self.tester = Tester(self)
         self.counter = Counter(self)
         self.fetcher = Fetcher(self)
         self.validator = Validator(self)

@@ -7,11 +7,23 @@
     "namespace": "ed-fi",
     "resources": {
         "educationServiceCenters": {
+            "successes": [
+                {
+                    "status_code": 201,
+                    "count": 1
+                }
+            ],
             "records_processed": 1,
             "records_skipped": 0,
             "records_failed": 0
         },
         "schools": {
+            "successes": [
+                {
+                    "status_code": 201,
+                    "count": 1
+                }
+            ],
             "records_processed": 1,
             "records_skipped": 0,
             "records_failed": 0
