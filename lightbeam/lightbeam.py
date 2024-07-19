@@ -72,7 +72,6 @@ class Lightbeam:
         self.resend_status_codes=resend_status_codes
         self.endpoints = []
         self.results = []
-        self.tester = Tester(self)
         self.counter = Counter(self)
         self.fetcher = Fetcher(self)
         self.validator = Validator(self)
