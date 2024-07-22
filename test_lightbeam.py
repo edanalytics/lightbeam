@@ -6,6 +6,7 @@
 # TODO: update the test suite to compare CLI output to expected
 
 import os
+from lightbeam.tests.suite import run_test_suite
 import logging
 from lightbeam.lightbeam import Lightbeam
 
@@ -44,7 +45,7 @@ def test_suite():
         )
     try:
         lb.logger.info("running tests...")
-        assert lb.tester.test(tests_dir)
+        assert run_test_suite(tests_dir, lb, lb.logger)
         lb.logger.info('all tests passed successfully.')
     except Exception as e:
         logger.exception(e, exc_info=lb.config["show_stacktrace"])
