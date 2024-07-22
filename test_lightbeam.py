@@ -43,9 +43,7 @@ def test_suite():
         query="{}",
         params='{"BASE_DIR": "' + tests_dir + '", "BASE_URL": "' + base_url + '", "CLIENT_ID": "' + client_id + '", "CLIENT_SECRET": "' + client_secret + '"}',
         )
-    try:
-        lb.logger.info("running tests...")
-        assert run_test_suite(tests_dir, lb, lb.logger)
-        lb.logger.info('all tests passed successfully.')
-    except Exception as e:
-        logger.exception(e, exc_info=lb.config["show_stacktrace"])
+    lb.logger.info("running tests...")
+    assert run_test_suite(tests_dir, lb, lb.logger)
+    lb.logger.info('all tests passed successfully.')
+    
