@@ -196,7 +196,7 @@ class Validator:
                     
                     # implement "fail fast" feature:
                     if self.lightbeam.num_errors >= self.fail_fast_threshold:
-                        self.logger.critical(f"... STOPPING; found {self.lightbeam.num_errors} >= validate.references.max_failures={fail_fast_threshold} VALIDATION ERRORS.")
+                        self.logger.critical(f"... STOPPING; found {self.lightbeam.num_errors} >= validate.references.max_failures={self.fail_fast_threshold} VALIDATION ERRORS.")
                         break
 
             if len(tasks)>0: await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
