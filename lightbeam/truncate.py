@@ -54,7 +54,6 @@ class Truncator:
         self.lightbeam.keep_keys = "id"
         self.lightbeam.track_state = False
 
-
         # this fetches the IDs of all payloads in the Ed-Fi API into self.lightbeam.results:
         self.lightbeam.results = []
         await self.lightbeam.fetcher.get_records(do_write=False, log_status_counts=False)
