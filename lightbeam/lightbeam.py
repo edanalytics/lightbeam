@@ -210,6 +210,7 @@ class Lightbeam:
                                 break
                     if has_data_file:
                         endpoints_with_data.append(data_dir_item)
+                        
         # now we have the endpoints with data, but they're in whatever order
         # os.listdir() gave (usually alphabetical)... so we must re-order them
         # back to the `filter_endpoints` order:
