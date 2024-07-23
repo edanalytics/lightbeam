@@ -1,3 +1,14 @@
+### v0.1.5
+<details>
+<summary>Released 2024-07-23</summary>
+
+* feature: [add a `successes` section to the structured log results file to report how many payloads resulted in a 200, 201, etc.](https://github.com/edanalytics/lightbeam/pull/47)
+* feature: [add a test suite](https://github.com/edanalytics/lightbeam/pull/45)
+* bugfix: [lightbeam send resulted in an error about `lightbeam.get_endpoints_with_data()`](https://github.com/edanalytics/lightbeam/pull/48)
+* bugfix: [restore endpoint dependency ordering to `lightbeam.get_endpoints_with_data()`](https://github.com/edanalytics/lightbeam/pull/49)
+* bugfix: [custom API URLs not picked up when some, but not all, are specified](https://github.com/edanalytics/lightbeam/pull/46)
+</details>
+
 ### v0.1.4
 <details>
 <summary>Released 2024-07-12</summary>
