@@ -164,6 +164,15 @@ class EdFiAPI:
             if e["resource"].startswith("/" + self.lightbeam.config["namespace"] + "/"):
                 ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
         return ordered_endpoints
+
+    # returns the `endpoints` sorted in dependency-order
+    def sort_endpoints(self, my_endpoints=[]):
+        all_sorted_endpoints = self.get_sorted_endpoints()
+        my_sorted_endpoints = []
+        for endpoint in all_sorted_endpoints:
+            if endpoint in my_endpoints:
+                my_sorted_endpoints.append(endpoint)
+        return my_sorted_endpoints
     
     # Loads the Swagger JSON from the Ed-Fi API
     def load_swagger_docs(self):

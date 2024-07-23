@@ -210,8 +210,14 @@ class Lightbeam:
                                 break
                     if has_data_file:
                         endpoints_with_data.append(data_dir_item)
-
-        return endpoints_with_data
+        # now we have the endpoints with data, but they're in whatever order
+        # os.listdir() gave (usually alphabetical)... so we must re-order them
+        # back to the `filter_endpoints` order:
+        final_endpoints_with_data = []
+        for endpoint in filter_endpoints:
+            if endpoint in endpoints_with_data:
+                final_endpoints_with_data.append(endpoint)
+        return final_endpoints_with_data
     
     # Returns a generator which produces json lines for a given endpoint based on relevant files in config.data_dir
     # def get_jsonl_for_endpoint(self, endpoint):

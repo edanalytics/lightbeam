@@ -53,8 +53,8 @@ class Truncator:
         self.lightbeam.selector = endpoint
         self.lightbeam.keep_keys = "id"
         self.lightbeam.track_state = False
-        all_endpoints = self.lightbeam.api.get_sorted_endpoints()
-        self.lightbeam.endpoints = self.lightbeam.api.apply_filters(all_endpoints)
+        # reverse() so that we truncate the "leaf" nodes first
+
 
         # this fetches the IDs of all payloads in the Ed-Fi API into self.lightbeam.results:
         self.lightbeam.results = []
