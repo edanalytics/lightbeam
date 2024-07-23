@@ -1,0 +1,37 @@
+{
+    "started_at": "",
+    "working_dir": "",
+    "config_file": "",
+    "data_dir": "",
+    "api_url": "",
+    "namespace": "ed-fi",
+    "resources": {
+        "educationServiceCenters": {
+            "successes": [
+                {
+                    "status_code": 201,
+                    "count": 1
+                }
+            ],
+            "records_processed": 1,
+            "records_skipped": 0,
+            "records_failed": 0
+        },
+        "schools": {
+            "successes": [
+                {
+                    "status_code": 201,
+                    "count": 1
+                }
+            ],
+            "records_processed": 1,
+            "records_skipped": 0,
+            "records_failed": 0
+        }
+    },
+    "completed_at": "",
+    "runtime_sec": 1.0,
+    "total_records_processed": 2,
+    "total_records_skipped": 0,
+    "total_records_failed": 0
+}

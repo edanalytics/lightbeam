@@ -117,13 +117,6 @@ def main(argv=None):
         print(f"unknown arguments {unknown_args_str} passed, use -h flag for help")
         exit(1)
     
-    if args.command not in ALLOWED_COMMANDS.values():
-        if args.command is None:
-            logger.error(f"no command provided. Use one of ({command_list}), see -h flag for help")
-        else:
-            logger.error(f"unknown command '{args.command}' passed, use -h flag for help")
-        exit(1)
-    
     if args.version:
         lb_dir = os.path.dirname(os.path.abspath(__file__))
         version_file = os.path.join(lb_dir, 'VERSION.txt')
@@ -131,7 +124,15 @@ def main(argv=None):
             VERSION = f.read().strip()
             print(f"lightbeam, version {VERSION}")
         exit(0)
+    
 
+    if args.command not in ALLOWED_COMMANDS.values():
+        if args.command is None:
+            logger.error(f"no command provided. Use one of ({command_list}), see -h flag for help")
+        else:
+            logger.error(f"unknown command '{args.command}' passed, use -h flag for help")
+        exit(1)
+    
     if not args.config_file:
         for file in DEFAULT_CONFIG_FILES:
             test_file = os.path.join(".", file)
