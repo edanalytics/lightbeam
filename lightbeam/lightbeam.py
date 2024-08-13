@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import yaml
 import logging
@@ -80,6 +81,7 @@ class Lightbeam:
         self.api = EdFiAPI(self)
         self.token_version = 0        
         self.results_file = results_file
+        self.start_timestamp = datetime.now()
 
         # load params and/or env vars for config YAML interpolation
         self.params = json.loads(params) if params else {}
@@ -115,6 +117,51 @@ class Lightbeam:
         if self.track_state and not os.path.isdir(self.config["state_dir"]):
             self.logger.debug("creating state dir {0}".format(self.config["state_dir"]))
             os.mkdir(self.config["state_dir"])
+
+        # Initialize a dictionary for tracking run metadata (for structured output)
+        self.metadata = {
+            "started_at": self.start_timestamp.isoformat(timespec='microseconds'),
+            "working_dir": os.getcwd(),
+            "config_file": self.config_file,
+            "data_dir": self.config["data_dir"],
+            "api_url": self.config["edfi_api"]["base_url"],
+            "namespace": self.config["namespace"],
+            "resources": {}
+        }
+    
+    # helper function used below
+    def replace_linebreaks(self, m):
+        return re.sub(r"\s+", '', m.group(0))
+
+    def write_structured_output(self):
+        ### Create structured output results_file if necessary
+        self.end_timestamp = datetime.now()
+        self.metadata.update({
+            "completed_at": self.end_timestamp.isoformat(timespec='microseconds'),
+            "runtime_sec": (self.end_timestamp - self.start_timestamp).total_seconds(),
+            "total_records_processed": sum(item['records_processed'] for item in self.metadata["resources"].values()),
+            "total_records_skipped": sum(item['records_skipped'] for item in self.metadata["resources"].values()),
+            "total_records_failed": sum(item['records_failed'] for item in self.metadata["resources"].values())
+        })
+        # sort failing line numbers
+        for resource in self.metadata["resources"].keys():
+            if "failures" in self.metadata["resources"][resource].keys():
+                for idx, _ in enumerate(self.metadata["resources"][resource]["failures"]):
+                    self.metadata["resources"][resource]["failures"][idx]["line_numbers"].sort()
+
+        ### Create structured output results_file if necessary
+        if self.results_file:
+
+            # create directory if not exists
+            os.makedirs(os.path.dirname(self.results_file), exist_ok=True)
+
+            with open(self.results_file, 'w') as fp:
+                content = json.dumps(self.metadata, indent=4)
+                # failures.line_numbers are split each on their own line; here we remove those line breaks
+                content = re.sub(r'"line_numbers": \[(\d|,|\s|\n)*\]', self.replace_linebreaks, content)
+                fp.write(content)
+        self.logger.info(f"results written to {self.results_file}")
+        
     
     def load_config_file(self) -> dict:
         _env_backup = os.environ.copy()
