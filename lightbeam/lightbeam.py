@@ -133,10 +133,11 @@ class Lightbeam:
     def replace_linebreaks(self, m):
         return re.sub(r"\s+", '', m.group(0))
 
-    def write_structured_output(self):
+    def write_structured_output(self, command):
         ### Create structured output results_file if necessary
         self.end_timestamp = datetime.now()
         self.metadata.update({
+            "command": command,
             "completed_at": self.end_timestamp.isoformat(timespec='microseconds'),
             "runtime_sec": (self.end_timestamp - self.start_timestamp).total_seconds(),
             "total_records_processed": sum(item['records_processed'] for item in self.metadata["resources"].values()),

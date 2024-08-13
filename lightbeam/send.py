@@ -36,7 +36,7 @@ class Sender:
             self.lightbeam.log_status_reasons()
         
         # write structured output (if needed)
-        self.lightbeam.write_structured_output()
+        self.lightbeam.write_structured_output("send")
 
         if self.lightbeam.metadata["total_records_processed"] == self.lightbeam.metadata["total_records_skipped"]:
             self.logger.info("all payloads skipped")

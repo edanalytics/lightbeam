@@ -68,7 +68,7 @@ class Validator:
             asyncio.run(self.validate_endpoint(endpoint))
         
         # write structured output (if needed)
-        self.lightbeam.write_structured_output()
+        self.lightbeam.write_structured_output("validate")
 
         if self.lightbeam.metadata["total_records_processed"] == self.lightbeam.metadata["total_records_failed"]:
             self.logger.info("all payloads failed")
