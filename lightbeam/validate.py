@@ -143,9 +143,8 @@ class Validator:
         else:
             self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         references = {}
+        prefixes_to_remove = ["#/definitions/", "#/components/schemas/"]
         for k in schema["properties"].keys():
-            prefixes_to_remove = (("#/definitions/", ""), ("#/components/schemas/", ""))
-
             if k.endswith("Reference"):
                 original_endpoint = util.pluralize_endpoint(k.replace("Reference", ""))
 
@@ -153,14 +152,18 @@ class Validator:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
                 
                 for endpoint in endpoints_to_check:
-                    ref_definition = schema["properties"][k]["$ref"].replace(*prefixes_to_remove)
+                    ref_definition = schema["properties"][k]["$ref"]
+                    for prefix_to_remove in prefixes_to_remove:
+                        ref_definition = ref_definition.replace(prefix_to_remove,"")
                     # look up (in swagger) the required fields for any reference
                     ref_properties = self.load_reference(swagger, ref_definition)
                     references[endpoint] = ref_properties
             elif "items" in schema["properties"][k].keys():
                 # this deals with a property which is a list of items which themselves contain References
                 # (example: studentAssessment.studentObjectiveAssessments contain an objectiveAssessmentReference)
-                nested_definition = schema["properties"][k]["items"]["$ref"].replace(*prefixes_to_remove)
+                nested_definition = schema["properties"][k]["items"]["$ref"]
+                for prefix_to_remove in prefixes_to_remove:
+                    nested_definition = nested_definition.replace(prefix_to_remove,"")
                 nested_references = self.load_references_structure(swagger, nested_definition)
                 references.update(nested_references)
         return references
@@ -189,6 +192,11 @@ class Validator:
         tasks = []
         total_counter = 0
         self.lightbeam.num_errors = 0
+        self.lightbeam.metadata["resources"][endpoint].update({
+            "records_processed": 0,
+            "records_skipped": 0,
+            "records_failed": 0
+        })
         for file_name in data_files:
             self.logger.info(f"validating {file_name} against {definition} schema...")
             with open(file_name) as file:
@@ -205,20 +213,19 @@ class Validator:
                         if total_counter%1000==0:
                             self.logger.info(f"(processed {total_counter}...)")
                     
+                    # update metadata counts
+                    self.lightbeam.metadata["resources"][endpoint]["records_processed"] = total_counter
+                    self.lightbeam.metadata["resources"][endpoint]["records_skipped"] = self.lightbeam.num_skipped
+                    self.lightbeam.metadata["resources"][endpoint]["records_failed"] = self.lightbeam.num_errors
+                    
                     # implement "fail fast" feature:
                     if self.lightbeam.num_errors >= self.fail_fast_threshold:
+                        self.lightbeam.shutdown("validate")
                         self.logger.critical(f"... STOPPING; found {self.lightbeam.num_errors} >= validate.references.max_failures={self.fail_fast_threshold} VALIDATION ERRORS.")
                         break
 
             if len(tasks)>0: await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
 
-            # update metadata counts for this endpoint
-            self.lightbeam.metadata["resources"][endpoint].update({
-                "records_processed": total_counter,
-                "records_skipped": self.lightbeam.num_skipped,
-                "records_failed": self.lightbeam.num_errors
-            })
-            
             if self.lightbeam.num_errors==0: self.logger.info(f"... all lines validate ok!")
             else:
                 num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY

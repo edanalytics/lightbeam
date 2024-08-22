@@ -133,6 +133,11 @@ class Lightbeam:
     def replace_linebreaks(self, m):
         return re.sub(r"\s+", '', m.group(0))
 
+    def shutdown(self, method):
+        # this is called before any CRITICAL errors;
+        # any cleanup tasks should go here:
+        self.write_structured_output(method)
+
     def write_structured_output(self, command):
         ### Create structured output results_file if necessary
         self.end_timestamp = datetime.now()
