@@ -144,6 +144,8 @@ class Validator:
             self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         references = {}
         for k in schema["properties"].keys():
+            prefixes_to_remove = (("#/definitions/", ""), ("#/components/schemas/", ""))
+
             if k.endswith("Reference"):
                 original_endpoint = util.pluralize_endpoint(k.replace("Reference", ""))
 
@@ -151,14 +153,14 @@ class Validator:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
                 
                 for endpoint in endpoints_to_check:
-                    ref_definition = schema["properties"][k]["$ref"].replace("#/definitions/", "")
+                    ref_definition = schema["properties"][k]["$ref"].replace(*prefixes_to_remove)
                     # look up (in swagger) the required fields for any reference
                     ref_properties = self.load_reference(swagger, ref_definition)
                     references[endpoint] = ref_properties
             elif "items" in schema["properties"][k].keys():
                 # this deals with a property which is a list of items which themselves contain References
                 # (example: studentAssessment.studentObjectiveAssessments contain an objectiveAssessmentReference)
-                nested_definition = schema["properties"][k]["items"]["$ref"].replace("#/definitions/", "")
+                nested_definition = schema["properties"][k]["items"]["$ref"].replace(*prefixes_to_remove)
                 nested_references = self.load_references_structure(swagger, nested_definition)
                 references.update(nested_references)
         return references
