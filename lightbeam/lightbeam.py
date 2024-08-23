@@ -129,14 +129,14 @@ class Lightbeam:
             "resources": {}
         }
     
+    # this is intended to be called before any CRITICAL errors;
+    # any cleanup tasks should go here:
+    def shutdown(self, method):
+        self.write_structured_output(method)
+
     # helper function used below
     def replace_linebreaks(self, m):
         return re.sub(r"\s+", '', m.group(0))
-
-    def shutdown(self, method):
-        # this is called before any CRITICAL errors;
-        # any cleanup tasks should go here:
-        self.write_structured_output(method)
 
     def write_structured_output(self, command):
         ### Create structured output results_file if necessary
