@@ -3,7 +3,6 @@ import os
 import time
 import json
 import asyncio
-import datetime
 
 from lightbeam import util
 from lightbeam import hashlog
@@ -16,21 +15,9 @@ class Sender:
         self.lightbeam.reset_counters()
         self.logger = self.lightbeam.logger
         self.hashlog_data = {}
-        self.start_timestamp = datetime.datetime.now()
 
     # Sends all (selected) endpoints
     def send(self):
-
-        # Initialize a dictionary for tracking run metadata (for structured output)
-        self.metadata = {
-            "started_at": self.start_timestamp.isoformat(timespec='microseconds'),
-            "working_dir": os.getcwd(),
-            "config_file": self.lightbeam.config_file,
-            "data_dir": self.lightbeam.config["data_dir"],
-            "api_url": self.lightbeam.config["edfi_api"]["base_url"],
-            "namespace": self.lightbeam.config["namespace"],
-            "resources": {}
-        }
 
         # get token with which to send requests
         self.lightbeam.api.do_oauth()
@@ -47,43 +34,15 @@ class Sender:
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
             self.logger.info("  (final status counts: {0}) ".format(self.lightbeam.status_counts))
             self.lightbeam.log_status_reasons()
+        
+        # write structured output (if needed)
+        self.lightbeam.write_structured_output("send")
 
-        ### Create structured output results_file if necessary
-        self.end_timestamp = datetime.datetime.now()
-        self.metadata.update({
-            "completed_at": self.end_timestamp.isoformat(timespec='microseconds'),
-            "runtime_sec": (self.end_timestamp - self.start_timestamp).total_seconds(),
-            "total_records_processed": sum(item['records_processed'] for item in self.metadata["resources"].values()),
-            "total_records_skipped": sum(item['records_skipped'] for item in self.metadata["resources"].values()),
-            "total_records_failed": sum(item['records_failed'] for item in self.metadata["resources"].values())
-        })
-        # sort failing line numbers
-        for resource in self.metadata["resources"].keys():
-            if "failures" in self.metadata["resources"][resource].keys():
-                for idx, _ in enumerate(self.metadata["resources"][resource]["failures"]):
-                    self.metadata["resources"][resource]["failures"][idx]["line_numbers"].sort()
-
-        # helper function used below
-        def repl(m):
-            return re.sub(r"\s+", '', m.group(0))
-
-        ### Create structured output results_file if necessary
-        if self.lightbeam.results_file:
-
-            # create directory if not exists
-            os.makedirs(os.path.dirname(self.lightbeam.results_file), exist_ok=True)
-
-            with open(self.lightbeam.results_file, 'w') as fp:
-                content = json.dumps(self.metadata, indent=4)
-                # failures.line_numbers are split each on their own line; here we remove those line breaks
-                content = re.sub(r'"line_numbers": \[(\d|,|\s|\n)*\]', repl, content)
-                fp.write(content)
-
-        if self.metadata["total_records_processed"] == self.metadata["total_records_skipped"]:
+        if self.lightbeam.metadata["total_records_processed"] == self.lightbeam.metadata["total_records_skipped"]:
             self.logger.info("all payloads skipped")
             exit(99) # signal to downstream tasks (in Airflow) all payloads skipped
 
-        if self.metadata["total_records_processed"] == self.metadata["total_records_failed"]:
+        if self.lightbeam.metadata["total_records_processed"] == self.lightbeam.metadata["total_records_failed"]:
             self.logger.info("all payloads failed")
             exit(1) # signal to downstream tasks (in Airflow) all payloads failed
 
@@ -100,7 +59,7 @@ class Sender:
             hashlog_file = os.path.join(self.lightbeam.config["state_dir"], f"{endpoint}.dat")
             self.hashlog_data = hashlog.load(hashlog_file)
 
-        self.metadata["resources"].update({endpoint: {}})
+        self.lightbeam.metadata["resources"].update({endpoint: {}})
         self.lightbeam.reset_counters()
 
         # process each file
@@ -169,8 +128,8 @@ class Sender:
             if status>=200 and status<300:
                 successes.append({"status_code": status, "count": self.lightbeam.status_counts[status]})
         if len(successes)>0:
-            self.metadata["resources"][endpoint].update({"successes": successes})
-        self.metadata["resources"][endpoint].update({
+            self.lightbeam.metadata["resources"][endpoint].update({"successes": successes})
+        self.lightbeam.metadata["resources"][endpoint].update({
             "records_processed": total_counter,
             "records_skipped": self.lightbeam.num_skipped,
             "records_failed": self.lightbeam.num_errors
@@ -199,7 +158,7 @@ class Sender:
                             message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
 
                             # update run metadata...
-                            failures = self.metadata["resources"][endpoint].get("failures", [])
+                            failures = self.lightbeam.metadata["resources"][endpoint].get("failures", [])
                             do_append = True
                             for index, item in enumerate(failures):
                                 if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
@@ -215,7 +174,7 @@ class Sender:
                                     'count': 1
                                 }
                                 failures.append(failure)
-                            self.metadata["resources"][endpoint]["failures"] = failures
+                            self.lightbeam.metadata["resources"][endpoint]["failures"] = failures
 
                             # update output and counters
                             self.lightbeam.increment_status_reason(message)

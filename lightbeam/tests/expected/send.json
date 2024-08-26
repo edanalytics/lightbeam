@@ -30,6 +30,7 @@
         }
     },
     "completed_at": "",
+    "command": "send",
     "runtime_sec": 1.0,
     "total_records_processed": 2,
     "total_records_skipped": 0,
