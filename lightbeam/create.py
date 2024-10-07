@@ -74,6 +74,7 @@ destinations:""")
             #   "property_float": 1.0,
             #   "property_string": "string",
             #   "property_date": "date",
+            #   "property_string_optional": "string",
             #   "property_descriptor": "uri://ed-fi.org/SomeDescriptor#SomeValue",
             #   "property_object": {
             #     "property_object_1": "string",
@@ -94,6 +95,9 @@ destinations:""")
             #   "property_float": {{property_float}},
             #   "property_string": "{{property_string}}",
             #   "property_date": "{{property_date}}",
+            #   {% if property_string_optional %}
+            #   "property_string_optional": "{{property_string_optional}}",
+            #   {% endif %}
             #   "property_descriptor": "uri://ed-fi.org/SomeDescriptor#{{property_descriptor}}",
             #   "property_object": {
             #     "property_object_1": "{{property_object_1}}",
