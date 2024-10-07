@@ -335,7 +335,6 @@ class EdFiAPI:
         if "Descriptor" in endpoint: swagger = self.descriptors_swagger
         else: swagger = self.resources_swagger
         definition = util.get_swagger_ref_for_endpoint(self.lightbeam.config["namespace"], swagger, endpoint)
-        # definition = util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
         if type=='required':
             return self.get_required_params_from_swagger(swagger, definition)
         else:
