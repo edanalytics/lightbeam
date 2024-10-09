@@ -344,6 +344,8 @@ class Validator:
                     value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], str) and k.endswith("Descriptor"):
+                if "#" not in payload[k]:
+                    return payload[k] + f" is not a valid descriptor value for {k}" + (" (at " + path + ")" if path!="" else "") + "; format should be like `uri://namespace.org/SomeDescriptor#SomeValue`"
                 namespace = payload[k].split("#")[0]
                 codeValue = payload[k].split("#")[1]
                 # check if it's a local descriptor:
