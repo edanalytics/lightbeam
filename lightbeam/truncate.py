@@ -28,12 +28,6 @@ class Truncator:
         self.lightbeam.confirm_truncate(endpoints)
 
         for endpoint in endpoints:
-            # it doesn't seem possible to delete students once you've sent them
-            # (I think because other entities may have referenced them in the meantime)
-            # if endpoint=='students':
-            #     self.logger.warn("data for {0} endpoint cannot be deleted (this is an Ed-Fi limitation); skipping".format(endpoint))
-            #     continue
-
             asyncio.run(self.do_truncates(endpoint))
             self.logger.info("finished processing endpoint {0}!".format(endpoint))
             self.logger.info("  (final status counts: {0})".format(self.lightbeam.status_counts))
