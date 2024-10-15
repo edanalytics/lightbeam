@@ -367,7 +367,7 @@ class EdFiAPI:
             self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         
         for prop in schema["properties"]:
-            if prop.endswith("Reference") and "requied" in schema.keys() and prop in schema['required']:
+            if prop.endswith("Reference") and "required" in schema.keys() and prop in schema['required']:
                 sub_definition = schema["properties"][prop]["$ref"]
                 sub_schema = util.resolve_swagger_ref(swagger, sub_definition)
                 for sub_prop in sub_schema["required"]:
