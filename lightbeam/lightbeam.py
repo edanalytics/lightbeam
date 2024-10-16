@@ -166,7 +166,8 @@ class Lightbeam:
                 # failures.line_numbers are split each on their own line; here we remove those line breaks
                 content = re.sub(r'"line_numbers": \[(\d|,|\s|\n)*\]', self.replace_linebreaks, content)
                 fp.write(content)
-        self.logger.info(f"results written to {self.results_file}")
+    
+            self.logger.info(f"results written to {self.results_file}")
         
     
     def load_config_file(self) -> dict:

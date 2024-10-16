@@ -80,3 +80,17 @@ def keys_match(key, wildcard_key):
     if wildcard_key.startswith("*") and key.endswith(wildcard_key.lstrip("*")): return True
     if wildcard_key.endswith("*") and key.startswith(wildcard_key.rstrip("*")): return True
     return False
+
+def get_swagger_ref_for_endpoint(namespace, swagger, endpoint):
+    if "definitions" in swagger.keys():
+        return "#/definitions/" + camel_case(namespace) + "_" + singularize_endpoint(endpoint)
+    elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
+        return "#/components/schemas/" + camel_case(namespace) + "_" + singularize_endpoint(endpoint)
+
+def resolve_swagger_ref(swagger, ref):
+    if "definitions" in swagger.keys():
+        definition = ref.replace("#/definitions/", "")
+        return swagger["definitions"][definition]
+    elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
+        definition = ref.replace("#/components/schemas/", "")
+        return swagger["components"]["schemas"][definition]
