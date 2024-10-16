@@ -367,16 +367,11 @@ class EdFiAPI:
             self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         
         for prop in schema["properties"]:
-            if prop.endswith("Reference") and "required" in schema.keys() and prop in schema['required']:
-                sub_definition = schema["properties"][prop]["$ref"]
-                sub_schema = util.resolve_swagger_ref(swagger, sub_definition)
-                for sub_prop in sub_schema["required"]:
-                    params[f"{prop}.{sub_prop}"] = sub_prop
-            elif "$ref" in schema["properties"][prop].keys():
+            if prop.endswith("Reference") and "required" in schema.keys() and prop in schema['required'] and "$ref" in schema["properties"][prop].keys():
                 sub_definition = schema["properties"][prop]["$ref"]
                 sub_params = self.get_identity_params_from_swagger(swagger, sub_definition, prefix=prop+".")
                 for k,v in sub_params.items():
                     params[k] = v
-            elif schema["properties"][prop]["type"]!="array" and "x-Ed-Fi-isIdentity" in schema["properties"][prop].keys():
+            elif "type" in schema["properties"][prop].keys() and schema["properties"][prop]["type"]!="array" and "x-Ed-Fi-isIdentity" in schema["properties"][prop].keys():
                 params[prop] = prefix + prop
         return params
