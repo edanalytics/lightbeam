@@ -1,6 +1,6 @@
 ### Unreleased changes
 
-* bugfix: `--results-file` required a directory prefix`
+* bugfix: `--results-file` required a directory prefix
 
 ### v0.1.5
 <details>
