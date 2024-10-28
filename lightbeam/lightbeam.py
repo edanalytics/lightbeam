@@ -80,7 +80,7 @@ class Lightbeam:
         self.truncator = Truncator(self)
         self.api = EdFiAPI(self)
         self.token_version = 0        
-        self.results_file = results_file
+        self.results_file = os.path.abspath(results_file)
         self.start_timestamp = datetime.now()
 
         # load params and/or env vars for config YAML interpolation
