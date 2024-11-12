@@ -251,7 +251,7 @@ class Validator:
         
         resolver = RefResolver("test", swagger, swagger)
         validator = Draft4Validator(resource_schema, resolver=resolver)
-        params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
+        identity_params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint, type='identity')
         distinct_params = []
 
         # check payload is valid JSON
@@ -281,7 +281,7 @@ class Validator:
 
         # check natural keys are unique
         if "uniqueness" in self.validation_methods:
-            params = json.dumps(util.interpolate_params(params_structure, payload))
+            params = json.dumps(util.interpolate_params(identity_params_structure, payload))
             params_hash = hashlog.get_hash(params)
             if params_hash in distinct_params:
                 self.log_validation_error(endpoint, file_name, line_counter, "uniqueness", "duplicate value(s) for natural key(s): {params}")

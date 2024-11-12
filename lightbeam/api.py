@@ -304,7 +304,7 @@ class EdFiAPI:
                 for key in v.keys():
                     if key.endswith("Id"): descriptor = key[0:-2]
                 self.descriptor_values.append([descriptor, v["namespace"], v["codeValue"], v["shortDescription"], v.get("description", "")])
-            
+
             # save
             if self.lightbeam.track_state:
                 self.logger.debug(f"saving descriptor values to {cache_file}...")
@@ -331,33 +331,47 @@ class EdFiAPI:
     # }
     # (The first element is a required attribute of the assessmentItem; the other two are required elements
     # of the required nested assessmentReference.)
-    def get_params_for_endpoint(self, endpoint):
+    def get_params_for_endpoint(self, endpoint, type='required'):
         if "Descriptor" in endpoint: swagger = self.descriptors_swagger
         else: swagger = self.resources_swagger
-        definition = util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
-        return self.get_required_params_from_swagger(swagger, definition)
+        definition = util.get_swagger_ref_for_endpoint(self.lightbeam.config["namespace"], swagger, endpoint)
+        if type=='required':
+            return self.get_required_params_from_swagger(swagger, definition)
+        else:
+            # descriptor endpoints all have the same structure and identity fields:
+            if "Descriptor" in endpoint:
+                return { 'namespace':'namespace', 'codeValue':'codeValue', 'shortDescription':'shortDescription'}
+            else:
+                return self.get_identity_params_from_swagger(swagger, definition)
 
     def get_required_params_from_swagger(self, swagger, definition, prefix=""):
         params = {}
-        use_definitions = False
-        if "definitions" in swagger.keys():
-            schema = swagger["definitions"][definition]
-            use_definitions = True
-        elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
-            schema = swagger["components"]["schemas"][definition]
-        else:
+        schema = util.resolve_swagger_ref(swagger, definition)
+        if not schema:
             self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         
-        for requiredProperty in schema["required"]:
-            if "$ref" in schema["properties"][requiredProperty].keys():
-                sub_definition = schema["properties"][requiredProperty]["$ref"]
-                if use_definitions:
-                    sub_definition = sub_definition.replace("#/definitions/", "")
-                else:
-                    sub_definition = sub_definition.replace("#/components/schemas/", "")
-                sub_params = self.get_required_params_from_swagger(swagger, sub_definition, prefix=requiredProperty+".")
+        for prop in schema["required"]:
+            if "$ref" in schema["properties"][prop].keys():
+                sub_definition = schema["properties"][prop]["$ref"]
+                sub_params = self.get_required_params_from_swagger(swagger, sub_definition, prefix=prop+".")
                 for k,v in sub_params.items():
                     params[k] = v
-            elif schema["properties"][requiredProperty]["type"]!="array":
-                params[requiredProperty] = prefix + requiredProperty
+            elif schema["properties"][prop]["type"]!="array":
+                params[prop] = prefix + prop
+        return params
+
+    def get_identity_params_from_swagger(self, swagger, definition, prefix=""):
+        params = {}
+        schema = util.resolve_swagger_ref(swagger, definition)
+        if not schema:
+            self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
+        
+        for prop in schema["properties"]:
+            if prop.endswith("Reference") and "required" in schema.keys() and prop in schema['required'] and "$ref" in schema["properties"][prop].keys():
+                sub_definition = schema["properties"][prop]["$ref"]
+                sub_params = self.get_identity_params_from_swagger(swagger, sub_definition, prefix=prop+".")
+                for k,v in sub_params.items():
+                    params[k] = v
+            elif "type" in schema["properties"][prop].keys() and schema["properties"][prop]["type"]!="array" and "x-Ed-Fi-isIdentity" in schema["properties"][prop].keys():
+                params[prop] = prefix + prop
         return params
