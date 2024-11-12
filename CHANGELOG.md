@@ -1,3 +1,7 @@
+### Unreleased changes
+
+* bugfix: `--results-file` required a directory prefix
+
 ### v0.1.5
 <details>
 <summary>Released 2024-07-23</summary>
