@@ -14,7 +14,6 @@ class Validator:
     MAX_VALIDATION_ERRORS_TO_DISPLAY = 10
     MAX_VALIDATE_TASK_QUEUE_SIZE = 100
     DEFAULT_VALIDATION_METHODS = ["schema", "descriptors", "uniqueness"]
-    DEFAULT_FAIL_FAST_THRESHOLD = 10
 
     EDFI_GENERICS_TO_RESOURCES_MAPPING = {
         "educationOrganizations": ["localEducationAgencies", "stateEducationAgencies", "schools"],
@@ -35,7 +34,7 @@ class Validator:
     def validate(self):
 
         # The below should go in __init__(), but rely on lightbeam.config which is not yet available there.
-        self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", self.DEFAULT_FAIL_FAST_THRESHOLD)
+        self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", None)
         self.validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
         if type(self.validation_methods)==str and (self.validation_methods=="*" or self.validation_methods.lower()=='all'):
             self.validation_methods = self.DEFAULT_VALIDATION_METHODS
@@ -219,7 +218,7 @@ class Validator:
                     self.lightbeam.metadata["resources"][endpoint]["records_failed"] = self.lightbeam.num_errors
                     
                     # implement "fail fast" feature:
-                    if self.lightbeam.num_errors >= self.fail_fast_threshold:
+                    if self.fail_fast_threshold is not None and self.lightbeam.num_errors >= self.fail_fast_threshold:
                         self.lightbeam.shutdown("validate")
                         self.logger.critical(f"... STOPPING; found {self.lightbeam.num_errors} >= validate.references.max_failures={self.fail_fast_threshold} VALIDATION ERRORS.")
                         break
@@ -235,7 +234,7 @@ class Validator:
 
 
     async def do_validate_payload(self, endpoint, file_name, data, line_counter):
-        if self.lightbeam.num_errors >= self.fail_fast_threshold: return
+        if self.fail_fast_threshold is not None and self.lightbeam.num_errors >= self.fail_fast_threshold: return
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         if "Descriptor" in endpoint:
             swagger = self.lightbeam.api.descriptors_swagger
