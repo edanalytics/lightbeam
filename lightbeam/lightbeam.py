@@ -82,7 +82,7 @@ class Lightbeam:
         self.truncator = Truncator(self)
         self.api = EdFiAPI(self)
         self.token_version = 0        
-        self.results_file = results_file
+        self.results_file = os.path.abspath(results_file) if results_file else None
         self.start_timestamp = datetime.now()
 
         # load params and/or env vars for config YAML interpolation
@@ -168,7 +168,8 @@ class Lightbeam:
                 # failures.line_numbers are split each on their own line; here we remove those line breaks
                 content = re.sub(r'"line_numbers": \[(\d|,|\s|\n)*\]', self.replace_linebreaks, content)
                 fp.write(content)
-        self.logger.info(f"results written to {self.results_file}")
+    
+            self.logger.info(f"results written to {self.results_file}")
         
     
     def load_config_file(self) -> dict:

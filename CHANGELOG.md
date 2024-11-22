@@ -1,3 +1,15 @@
+### v0.1.6
+<details>
+<summary>Released 2024-11-15</summary>
+
+* feature: [implement structured results file output for validate](https://github.com/edanalytics/lightbeam/pull/52)
+* bugfix: [`--results-file` required a directory prefix](https://github.com/edanalytics/lightbeam/pull/57)
+* bugfix: [`validate` of descriptor values without a hash char (`#`) failed](https://github.com/edanalytics/lightbeam/pull/53)
+* bugfix: [validate uniqueness by identity instead of required](https://github.com/edanalytics/lightbeam/pull/54)
+* bugfix: [allow deletion of students (if permitted by credential claimset and API auth strategy)](https://github.com/edanalytics/lightbeam/pull/55)
+* bugfix: [make `max_failures` truly optional](https://github.com/edanalytics/lightbeam/pull/58)
+</details>
+
 ### v0.1.5
 <details>
 <summary>Released 2024-07-23</summary>

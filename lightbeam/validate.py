@@ -14,7 +14,6 @@ class Validator:
     MAX_VALIDATION_ERRORS_TO_DISPLAY = 10
     MAX_VALIDATE_TASK_QUEUE_SIZE = 100
     DEFAULT_VALIDATION_METHODS = ["schema", "descriptors", "uniqueness"]
-    DEFAULT_FAIL_FAST_THRESHOLD = 10
 
     EDFI_GENERICS_TO_RESOURCES_MAPPING = {
         "educationOrganizations": ["localEducationAgencies", "stateEducationAgencies", "schools"],
@@ -35,7 +34,7 @@ class Validator:
     def validate(self):
 
         # The below should go in __init__(), but rely on lightbeam.config which is not yet available there.
-        self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", self.DEFAULT_FAIL_FAST_THRESHOLD)
+        self.fail_fast_threshold = self.lightbeam.config.get("validate",{}).get("references",{}).get("max_failures", None)
         self.validation_methods = self.lightbeam.config.get("validate",{}).get("methods",self.DEFAULT_VALIDATION_METHODS)
         if type(self.validation_methods)==str and (self.validation_methods=="*" or self.validation_methods.lower()=='all'):
             self.validation_methods = self.DEFAULT_VALIDATION_METHODS
@@ -219,7 +218,7 @@ class Validator:
                     self.lightbeam.metadata["resources"][endpoint]["records_failed"] = self.lightbeam.num_errors
                     
                     # implement "fail fast" feature:
-                    if self.lightbeam.num_errors >= self.fail_fast_threshold:
+                    if self.fail_fast_threshold is not None and self.lightbeam.num_errors >= self.fail_fast_threshold:
                         self.lightbeam.shutdown("validate")
                         self.logger.critical(f"... STOPPING; found {self.lightbeam.num_errors} >= validate.references.max_failures={self.fail_fast_threshold} VALIDATION ERRORS.")
                         break
@@ -235,7 +234,7 @@ class Validator:
 
 
     async def do_validate_payload(self, endpoint, file_name, data, line_counter):
-        if self.lightbeam.num_errors >= self.fail_fast_threshold: return
+        if self.fail_fast_threshold is not None and self.lightbeam.num_errors >= self.fail_fast_threshold: return
         definition = self.get_swagger_definition_for_endpoint(endpoint)
         if "Descriptor" in endpoint:
             swagger = self.lightbeam.api.descriptors_swagger
@@ -251,7 +250,7 @@ class Validator:
         
         resolver = RefResolver("test", swagger, swagger)
         validator = Draft4Validator(resource_schema, resolver=resolver)
-        params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
+        identity_params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint, type='identity')
         distinct_params = []
 
         # check payload is valid JSON
@@ -281,7 +280,7 @@ class Validator:
 
         # check natural keys are unique
         if "uniqueness" in self.validation_methods:
-            params = json.dumps(util.interpolate_params(params_structure, payload))
+            params = json.dumps(util.interpolate_params(identity_params_structure, payload))
             params_hash = hashlog.get_hash(params)
             if params_hash in distinct_params:
                 self.log_validation_error(endpoint, file_name, line_counter, "uniqueness", "duplicate value(s) for natural key(s): {params}")
@@ -344,6 +343,8 @@ class Validator:
                     value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], str) and k.endswith("Descriptor"):
+                if "#" not in payload[k]:
+                    return payload[k] + f" is not a valid descriptor value for {k}" + (" (at " + path + ")" if path!="" else "") + "; format should be like `uri://namespace.org/SomeDescriptor#SomeValue`"
                 namespace = payload[k].split("#")[0]
                 codeValue = payload[k].split("#")[1]
                 # check if it's a local descriptor:
