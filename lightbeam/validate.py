@@ -225,6 +225,11 @@ class Validator:
 
             if len(tasks)>0: await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
 
+            # update metadata counts
+            self.lightbeam.metadata["resources"][endpoint]["records_processed"] = total_counter
+            self.lightbeam.metadata["resources"][endpoint]["records_skipped"] = self.lightbeam.num_skipped
+            self.lightbeam.metadata["resources"][endpoint]["records_failed"] = self.lightbeam.num_errors
+            
             if self.lightbeam.num_errors==0: self.logger.info(f"... all lines validate ok!")
             else:
                 num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY

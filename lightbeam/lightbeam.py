@@ -255,6 +255,7 @@ class Lightbeam:
                         if os.path.isfile(sub_dir_item_path):
                             filename = os.path.basename(sub_dir_item)
                             extension = filename.rsplit(".", 1)[-1]
+                            filename_without_extension = filename.rsplit(".", 1)[0]
                             if (
                                 extension in self.DATA_FILE_EXTENSIONS # valid file extension
                                 and filename_without_extension in self.all_endpoints # valid endpoint
