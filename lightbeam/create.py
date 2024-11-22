@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import yaml
 from lightbeam import util
@@ -12,6 +13,7 @@ class Creator:
         self.earthmover_file = "earthmover.yml"
     
     def create(self):
+        self.lightbeam.api.load_swagger_docs()
         os.makedirs(self.template_folder, exist_ok=True)
         earthmover_yaml = {}
         # check if file exists!
@@ -30,6 +32,12 @@ class Creator:
 
 # This is an earthmover.yml file, generated with `lightbeam create`, for creating Ed-Fi JSON payloads
 # using earthmover. See https://github.com/edanalytics/earthmover for documentation.
+
+config:
+  macros: >
+    {% macro descriptor_namespace() -%}
+      uri://ed-fi.org
+    {%- endmacro %}
 
 # Define your source data here:
 sources:
@@ -57,59 +65,41 @@ destinations:""")
     template: {self.template_folder}{endpoint}.jsont
     extension: jsonl
     linearize: True"""
+
+    def upper_repl(self, match):
+        value = match.group(1)
+        return "/" + value[0].upper() + value[1:] + "Descriptor#"
+        
         
     def create_jsont(self, endpoint):
         template_file = f"{self.template_folder}{endpoint}.jsont"
         # check if file exists!
         if os.path.isfile(template_file):
             self.logger.critical(f"The file `{template_file}` already exists in the current directory; to re-create it, please first manually delete it.")
+        # generate base JSON structure:
+        content = self.lightbeam.api.get_params_for_endpoint(endpoint, type='all')
+        # pretty-print it:
+        content = json.dumps(content, indent=2)
+        # annotate required/optional properties:
+        content = content.replace('"[required]', '{# (required) #} "')
+        content = content.replace('"[optional]', '{# (optional) #} "')
+        # appropriate quoting based on property data type:
+        content = re.sub('"\[string\](.*)Descriptor"', r'"{{descriptor_namespace()}}/\1Descriptor#{{\1Descriptor}}"', content)
+        content = re.sub('/(.*)_(.*)Descriptor#', r'/\2Descriptor#', content)
+        content = re.sub(r'/(.*)Descriptor#', self.upper_repl, content)
+        content = re.sub('"\[string\](.*)"', r'"{{\1}}"', content)
+        content = re.sub('"\[(integer|boolean)\](.*)"', r'{{\2}}', content)
+        # for loops over arrays:
+        content = re.sub('"(.*)": \[', r'"\1": [ {% for item in \1 %}', content)
+        content = re.sub('\]', r'{% endfor %} ]', content)
+        content = re.sub('{{(.*)_(.*)}}', r'{{item.\2}}', content)
+        # add info header message:
+        content = """{#
+  This is an earthmover JSON template file, generated with `lightbeam create`, for creating Ed-Fi JSON `"""+endpoint+"""`
+  payloads using earthmover. See https://github.com/edanalytics/earthmover for documentation.
+#}
+""" + content
         # write out json template
         self.logger.info(f"creating file `{template_file}`...")
         with open(template_file, 'w+') as file:
-            # TODO: implement a function in `lightbeam/api.py` that constructs a "sample" payload for the endpoint
-            # Example:
-            # {
-            #   "property_bool": true,
-            #   "property_int": 1,
-            #   "property_float": 1.0,
-            #   "property_string": "string",
-            #   "property_date": "date",
-            #   "property_string_optional": "string",
-            #   "property_descriptor": "uri://ed-fi.org/SomeDescriptor#SomeValue",
-            #   "property_object": {
-            #     "property_object_1": "string",
-            #     "property_object_2": "string"
-            #   },
-            #   "property_array": [
-            #     {
-            #       "property_array_1": "string",
-            #       "property_array_2": "string"
-            #     }
-            #   ]
-            # }
-            # TODO: turn the "sample" payload into a Jinja template
-            # Example:
-            # {
-            #   "property_bool": {{property_bool}},
-            #   "property_int": {{property_int}},
-            #   "property_float": {{property_float}},
-            #   "property_string": "{{property_string}}",
-            #   "property_date": "{{property_date}}",
-            #   {% if property_string_optional %}
-            #   "property_string_optional": "{{property_string_optional}}",
-            #   {% endif %}
-            #   "property_descriptor": "uri://ed-fi.org/SomeDescriptor#{{property_descriptor}}",
-            #   "property_object": {
-            #     "property_object_1": "{{property_object_1}}",
-            #     "property_object_2": "{{property_object_2}}"
-            #   },
-            #   "property_array": [
-            #     {% for item in property_array %}
-            #     {
-            #       "property_array_1": "{{item.property_array_1}}",
-            #       "property_array_2": "{{item.property_array_2}}"
-            #     } {% if not loop.last %},{% endif %}
-            #     {% endfor %}
-            #   ]
-            # }
-            file.write("coming soon...") # (for now)
+            file.write(content)
