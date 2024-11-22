@@ -375,13 +375,13 @@ class EdFiAPI:
             if "$ref" in schema["properties"][prop].keys():
                 params[prop_name] = {}
                 sub_definition = schema["properties"][prop]["$ref"]
-                sub_params = self.get_all_params_from_swagger(swagger, sub_definition, prefix=prop+"_")
+                sub_params = self.get_all_params_from_swagger(swagger, sub_definition, prefix=prefix+prop+"_")
                 for k,v in sub_params.items():
                     params[prop_name][k] = v
             elif schema["properties"][prop]["type"]!="array":
                 params[prop_name] = f"[{schema['properties'][prop]['type']}]" + prefix + prop
             else:
-                params[prop_name] = [self.get_all_params_from_swagger(swagger, schema["properties"][prop]["items"]["$ref"], prefix=prop+"_")]
+                params[prop_name] = [self.get_all_params_from_swagger(swagger, schema["properties"][prop]["items"]["$ref"], prefix=prefix+prop+"-")]
         return params
 
     def get_identity_params_from_swagger(self, swagger, definition, prefix=""):

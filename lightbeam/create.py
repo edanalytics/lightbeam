@@ -92,7 +92,7 @@ destinations:""")
         # for loops over arrays:
         content = re.sub('"(.*)": \[', r'"\1": [ {% for item in \1 %}', content)
         content = re.sub('\]', r'{% endfor %} ]', content)
-        content = re.sub('{{(.*)_(.*)}}', r'{{item.\2}}', content)
+        content = re.sub('{{(.*)-(.*)}}', r'{{item.\2}}', content)
         # add info header message:
         content = """{#
   This is an earthmover JSON template file, generated with `lightbeam create`, for creating Ed-Fi JSON `"""+endpoint+"""`
