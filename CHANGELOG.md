@@ -1,3 +1,6 @@
+### Unreleased changes
+* bugfix: `validate` logged incorrect number of total records
+
 ### v0.1.6
 <details>
 <summary>Released 2024-11-15</summary>
