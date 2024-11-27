@@ -235,7 +235,7 @@ class Validator:
                 num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY
                 if self.lightbeam.num_errors > self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                     self.logger.warn(f"... and {num_others} others!")
-                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_counter + 1} lines in {file_name}; see details above.")
+                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_counter} lines in {file_name}; see details above.")
 
 
     async def do_validate_payload(self, endpoint, file_name, data, line_counter):
