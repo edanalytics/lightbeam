@@ -90,7 +90,7 @@ def get_swagger_ref_for_endpoint(namespace, swagger, endpoint):
 def resolve_swagger_ref(swagger, ref):
     if "definitions" in swagger.keys():
         definition = ref.replace("#/definitions/", "")
-        return swagger["definitions"][definition]
+        return swagger["definitions"].get(definition, None)
     elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
         definition = ref.replace("#/components/schemas/", "")
-        return swagger["components"]["schemas"][definition]
+        return swagger["components"]["schemas"].get(definition, None)
