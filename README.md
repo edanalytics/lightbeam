@@ -147,6 +147,12 @@ validate:
     - references # checks that references resolve, either locally or in the remote API
   # or
   # methods: "*"
+  references:
+    selector:
+      - studentAssessments.studentReference
+      - studentSchoolAssociations.schoolReference
+    behavior: exclude # or `include`
+    remote: False # default=True
 ```
 Default `validate`.`methods` are `["schema", "descriptors", "uniqueness"]` (not `references`; see below). In addition to the above methods, `lighteam validate` will also (first) check that each payload is valid JSON.
 
@@ -166,6 +172,8 @@ This is optional; if absent, references in every payload are checked, no matter 
 * more data movement
 * `fetch`ed data becoming stale over time
 * needing to track which data is your own vs. was `fetch`ed (all the data must coexist in the `config.data_dir` to be discoverable by `lightbeam validate`)
+
+You may specify a `selector` list of the form `someEndpoint.path.to.someReference` to include or exclude (according to `behavior`) specific references from reference validation. You may also specity `remote: False` to only validate references against local data in your JSONL files.
 
 
 ## `send`
