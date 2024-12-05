@@ -108,6 +108,11 @@ def main(argv=None):
         type=str,
         help='produces a JSON output file with structured information about run results'
     )
+    parser.add_argument("--set",
+        type=str,
+        nargs="*",
+        help='overrides a setting in the config YAML; example: --set fetch.page_size 1000'
+    )
 
     defaults = { "selector":"*", "params": "", "older_than": "", "newer_than": "", "resend_status_codes": "", "results_file": "" }
     parser.set_defaults(**defaults)
@@ -143,6 +148,12 @@ def main(argv=None):
 
     if not args.config_file:
         logger.error("config file not specified with `-c` flag, and no default {" + ", ".join(DEFAULT_CONFIG_FILES) + "} found")
+    
+    if args.set and len(args.set)%2 != 0: # odd number of overrides
+        logger.error("overrides specified with --set must be followed by an even number of strings (key value key value ...)")
+    overrides = None
+    if args.set:
+        overrides = dict(zip(args.set[::2], args.set[1::2]))
 
     lb = Lightbeam(
         config_file=args.config_file,
@@ -158,7 +169,8 @@ def main(argv=None):
         older_than=args.older_than,
         newer_than=args.newer_than,
         resend_status_codes=args.resend_status_codes,
-        results_file=args.results_file
+        results_file=args.results_file,
+        overrides=overrides,
         )
     try:
         logger.info("starting...")
