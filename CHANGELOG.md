@@ -1,5 +1,5 @@
 ### Unreleased changes
-* bugfix: `validate` logged incorrect number of total records
+* bugfix: `validate` and `send` could incorrect number of total records
 
 ### v0.1.6
 <details>
