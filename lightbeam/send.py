@@ -69,7 +69,8 @@ class Sender:
         for file_name in data_files:
             with open(file_name) as file:
                 # process each line
-                for line_counter, line in enumerate(file):
+                for i, line in enumerate(file):
+                    line_number = i + 1
                     total_counter += 1
                     data = line.strip()
                     # compute hash of current row
@@ -90,7 +91,7 @@ class Sender:
                                         endpoint,
                                         file_name,
                                         data,
-                                        line_counter,
+                                        line_number,
                                         data_hash,
                                     )
                                 )
@@ -104,7 +105,7 @@ class Sender:
                         tasks.append(
                             asyncio.create_task(
                                 self.do_post(
-                                    endpoint, file_name, data, line_counter, data_hash
+                                    endpoint, file_name, data, line_number, data_hash
                                 )
                             )
                         )
@@ -136,7 +137,7 @@ class Sender:
         })
 
     # Posts a single data payload to a single endpoint
-    async def do_post(self, endpoint, file_name, data, line, data_hash):
+    async def do_post(self, endpoint, file_name, data, line_number, data_hash):
         curr_token_version = int(str(self.lightbeam.token_version))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
@@ -162,7 +163,7 @@ class Sender:
                             do_append = True
                             for index, item in enumerate(failures):
                                 if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
-                                    failures[index]["line_numbers"].append(line)
+                                    failures[index]["line_numbers"].append(line_number)
                                     failures[index]["count"] += 1
                                     do_append = False
                             if do_append:
@@ -170,7 +171,7 @@ class Sender:
                                     'status_code': response.status,
                                     'message': message,
                                     'file': file_name,
-                                    'line_numbers': [line],
+                                    'line_numbers': [line_number],
                                     'count': 1
                                 }
                                 failures.append(failure)
@@ -208,5 +209,5 @@ class Sender:
             except Exception as e:
                 status = 400
                 self.lightbeam.num_errors += 1
-                self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line, file_name))
+                self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line_number, file_name))
                 break
