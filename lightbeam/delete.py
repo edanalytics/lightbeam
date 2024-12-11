@@ -54,7 +54,7 @@ class Deleter:
         tasks = []
 
         # determine the fields that uniquely define a record for this endpoint
-        params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint)
+        params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint, type='identity')
 
         # for Descriptors, we need to fetch all Descriptor values first, then we can look up the ID for deletion
         if endpoint.endswith('Descriptors'):
