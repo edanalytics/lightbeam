@@ -21,6 +21,7 @@ class EdFiAPI:
         self.lightbeam = lightbeam
         self.logger = self.lightbeam.logger
         self.config = None
+        self.reports_identity = False
     
     # prepares this API object by fetching some of its metadata and
     # setting up data and objects for further use
@@ -239,6 +240,9 @@ class EdFiAPI:
                         if not response.ok:
                             raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
                         swagger = response.json()
+                        if '"x-Ed-Fi-isIdentity":' in response.text:
+                            self.reports_identity = True
+                            print("reports identity!!")
 
                     except Exception as e:
                         self.logger.critical(f"Unable to load {endpoint_type} Swagger from API... terminating. Check API connectivity.")
@@ -365,7 +369,7 @@ class EdFiAPI:
         schema = util.resolve_swagger_ref(swagger, definition)
         if not schema:
             self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
-        
+        print(definition, schema)
         for prop in schema["properties"]:
             if prop.endswith("Reference") and "required" in schema.keys() and prop in schema['required'] and "$ref" in schema["properties"][prop].keys():
                 sub_definition = schema["properties"][prop]["$ref"]
