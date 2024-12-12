@@ -369,7 +369,7 @@ class EdFiAPI:
         schema = util.resolve_swagger_ref(swagger, definition)
         if not schema:
             self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
-        print(definition, schema)
+        
         for prop in schema["properties"]:
             if prop.endswith("Reference") and "required" in schema.keys() and prop in schema['required'] and "$ref" in schema["properties"][prop].keys():
                 sub_definition = schema["properties"][prop]["$ref"]

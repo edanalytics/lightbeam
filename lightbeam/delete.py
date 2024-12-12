@@ -57,7 +57,6 @@ class Deleter:
         interpolation_type = 'required'
         if self.lightbeam.api.reports_identity: interpolation_type = 'identity'
         params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint, type=interpolation_type)
-        print(params_structure)
         
         # for Descriptors, we need to fetch all Descriptor values first, then we can look up the ID for deletion
         if endpoint.endswith('Descriptors'):
