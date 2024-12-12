@@ -84,7 +84,6 @@ class Deleter:
                     # (so we can search for matching records in the API)
                     payload = json.loads(data)
                     params = util.interpolate_params(params_structure, payload)
-                    print(params)
 
                     # check if we've posted this data before
                     data_hash = hashlog.get_hash(data)
