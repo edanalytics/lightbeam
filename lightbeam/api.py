@@ -242,7 +242,6 @@ class EdFiAPI:
                         swagger = response.json()
                         if '"x-Ed-Fi-isIdentity":' in response.text:
                             self.reports_identity = True
-                            print("reports identity!!")
 
                     except Exception as e:
                         self.logger.critical(f"Unable to load {endpoint_type} Swagger from API... terminating. Check API connectivity.")
