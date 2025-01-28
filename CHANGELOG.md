@@ -1,5 +1,6 @@
 ### Unreleased changes
-* bugfix: `validate` and `send` could incorrect number of total records
+* bugfix: failed `send` could bury error message coming from ODS
+* bugfix: `validate` and `send` could show incorrect number of total records
 
 ### v0.1.6
 <details>

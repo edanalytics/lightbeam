@@ -147,7 +147,8 @@ class Sender:
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers
                     ) as response:
-                    body = await response.text()
+                    text = await response.text()
+                    body = json.loads(text)
                     status = response.status
                     if status!=401:
                         # update status_counts (for every-second status update)
@@ -156,20 +157,23 @@ class Sender:
 
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
-                            message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
+                            if "errors" in body:
+                                log_message = str(response.status) + ": " + "; ".join(map(util.linearize, body["errors"]))
+                            elif "message" in body:
+                                log_message = str(response.status) + ": " + util.linearize(body["message"])
 
                             # update run metadata...
                             failures = self.lightbeam.metadata["resources"][endpoint].get("failures", [])
                             do_append = True
                             for index, item in enumerate(failures):
-                                if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
+                                if item["status_code"]==response.status and item["message"]==log_message and item["file"]==file_name:
                                     failures[index]["line_numbers"].append(line_number)
                                     failures[index]["count"] += 1
                                     do_append = False
                             if do_append:
                                 failure = {
                                     'status_code': response.status,
-                                    'message': message,
+                                    'message': log_message,
                                     'file': file_name,
                                     'line_numbers': [line_number],
                                     'count': 1
@@ -178,9 +182,9 @@ class Sender:
                             self.lightbeam.metadata["resources"][endpoint]["failures"] = failures
 
                             # update output and counters
-                            self.lightbeam.increment_status_reason(message)
+                            self.lightbeam.increment_status_reason(log_message)
                             if response.status==400:
-                                raise Exception(message)
+                                raise ValueError(log_message)
                             else:
                                 self.lightbeam.num_errors += 1
 
@@ -206,7 +210,7 @@ class Sender:
 
             except RuntimeError as e:
                 await asyncio.sleep(1)
-            except Exception as e:
+            except ValueError as e:
                 status = 400
                 self.lightbeam.num_errors += 1
                 self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line_number, file_name))
