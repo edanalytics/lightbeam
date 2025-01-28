@@ -148,7 +148,6 @@ class Sender:
                     headers=self.lightbeam.api.headers
                     ) as response:
                     text = await response.text()
-                    body = json.loads(text)
                     status = response.status
                     if status!=401:
                         # update status_counts (for every-second status update)
@@ -157,6 +156,8 @@ class Sender:
 
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
+                            body = json.loads(text)
+
                             if "errors" in body:
                                 log_message = str(response.status) + ": " + "; ".join(map(util.linearize, body["errors"]))
                             elif "message" in body:
