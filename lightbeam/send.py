@@ -161,6 +161,8 @@ class Sender:
                                 log_message = str(response.status) + ": " + "; ".join(map(util.linearize, body["errors"]))
                             elif "message" in body:
                                 log_message = str(response.status) + ": " + util.linearize(body["message"])
+                            else:
+                                log_message = ""
 
                             # update run metadata...
                             failures = self.lightbeam.metadata["resources"][endpoint].get("failures", [])
