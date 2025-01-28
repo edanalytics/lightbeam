@@ -156,13 +156,15 @@ class Sender:
 
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
-                            body = json.loads(text)
-
-                            if "errors" in body:
-                                log_message = str(response.status) + ": " + "; ".join(map(util.linearize, body["errors"]))
-                            elif "message" in body:
-                                log_message = str(response.status) + ": " + util.linearize(body["message"])
-                            else:
+                            try:
+                                body = json.loads(text)
+                                if "errors" in body:
+                                    log_message = str(response.status) + ": " + "; ".join(map(util.linearize, body["errors"]))
+                                elif "message" in body:
+                                    log_message = str(response.status) + ": " + util.linearize(body["message"])
+                                else:
+                                    log_message = ""
+                            except json.decoder.JSONDecodeError:
                                 log_message = ""
 
                             # update run metadata...
