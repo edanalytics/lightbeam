@@ -197,6 +197,24 @@ class Validator:
             "records_skipped": 0,
             "records_failed": 0
         })
+        # structures to support testing uniqueness accross payloads:
+        definition = self.get_swagger_definition_for_endpoint(endpoint)
+        if "Descriptor" in endpoint:
+            swagger = self.lightbeam.api.descriptors_swagger
+        else:
+            swagger = self.lightbeam.api.resources_swagger
+            
+        if "definitions" in swagger.keys():
+            resource_schema = swagger["definitions"][definition]
+        elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
+            resource_schema = swagger["components"]["schemas"][definition]
+        else:
+            self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
+        self.uniqueness_hashes = { endpoint: [] }
+        self.identity_params_structures = {}
+        self.schema_resolver = RefResolver("test", swagger, swagger)
+        self.schema_validator = Draft4Validator(resource_schema, resolver=self.schema_resolver)
+        
         for file_name in data_files:
             self.logger.info(f"validating {file_name} against {definition} schema...")
             with open(file_name) as file:
@@ -237,29 +255,18 @@ class Validator:
                 num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY
                 if self.lightbeam.num_errors > self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                     self.logger.warn(f"... and {num_others} others!")
-                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_number} lines in {file_name}; see details above.")
+                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_counter} lines in {file_name}; see details above.")
+        
+        # free up some memory
+        self.uniqueness_hashes = {}
+        self.identity_params_structures = {}
+        self.schema_resolver = None
+        self.schema_validator = None
 
 
     async def do_validate_payload(self, endpoint, file_name, data, line_number):
         if self.fail_fast_threshold is not None and self.lightbeam.num_errors >= self.fail_fast_threshold: return
-        definition = self.get_swagger_definition_for_endpoint(endpoint)
-        if "Descriptor" in endpoint:
-            swagger = self.lightbeam.api.descriptors_swagger
-        else:
-            swagger = self.lightbeam.api.resources_swagger
-            
-        if "definitions" in swagger.keys():
-            resource_schema = swagger["definitions"][definition]
-        elif "components" in swagger.keys() and "schemas" in swagger["components"].keys():
-            resource_schema = swagger["components"]["schemas"][definition]
-        else:
-            self.logger.critical(f"Swagger contains neither `definitions` nor `components.schemas` - check that the Swagger is valid.")
         
-        resolver = RefResolver("test", swagger, swagger)
-        validator = Draft4Validator(resource_schema, resolver=resolver)
-        identity_params_structure = self.lightbeam.api.get_params_for_endpoint(endpoint, type='identity')
-        distinct_params = []
-
         # check payload is valid JSON
         try:
             payload = json.loads(data)
@@ -270,7 +277,7 @@ class Validator:
         # check payload obeys Swagger schema
         if "schema" in self.validation_methods:
             try:
-                validator.validate(payload)
+                self.schema_validator.validate(payload)
             except Exception as e:
                 e_path = [str(x) for x in list(e.path)]
                 context = ""
@@ -286,14 +293,13 @@ class Validator:
                 return
 
         # check natural keys are unique
+        if not self.identity_params_structures.get(endpoint, False):
+            self.identity_params_structures[endpoint] = self.lightbeam.api.get_params_for_endpoint(endpoint, type='identity')
         if "uniqueness" in self.validation_methods:
-            params = json.dumps(util.interpolate_params(identity_params_structure, payload))
-            params_hash = hashlog.get_hash(params)
-            if params_hash in distinct_params:
-                self.log_validation_error(endpoint, file_name, line_number, "uniqueness", "duplicate value(s) for natural key(s): {params}")
-                return
-            else: distinct_params.append(params_hash)
-
+            error_message = self.violates_uniqueness(endpoint, payload, path="")
+            if error_message != "":
+                self.log_validation_error(endpoint, file_name, line_counter, "uniqueness", error_message)
+            
         # check references values are valid
         if "references" in self.validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
             self.lightbeam.api.do_oauth()
@@ -304,7 +310,7 @@ class Validator:
                 
     def log_validation_error(self, endpoint, file_name, line_number, method, message):
         if self.lightbeam.num_errors < self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
-            self.logger.warning(f"... VALIDATION ERROR (line {line_number}): {message}")
+            self.logger.warning(f"... VALIDATION ERROR ({method} at line {line_number}): {message}")
         self.lightbeam.num_errors += 1
 
         # update run metadata...
@@ -325,6 +331,31 @@ class Validator:
             }
             failures.append(failure)
         self.lightbeam.metadata["resources"][endpoint]["failures"] = failures
+    
+    def violates_uniqueness(self, endpoint, payload, path=""):
+        params = json.dumps(util.interpolate_params(self.identity_params_structures[endpoint], payload))
+        params_hash = hashlog.get_hash(params)
+        if params_hash in self.uniqueness_hashes[endpoint]:
+            return f"duplicate value(s) for identity key(s): " + ("(at "+path+"): " if path!="" else ": ") + f"{params}"
+        else:
+            self.uniqueness_hashes[endpoint].append(params_hash)
+            # (recursively) check uniqueness of items in arrays
+            swagger = self.lightbeam.api.resources_swagger
+            endpoint_def = util.get_swagger_ref_for_endpoint(self.lightbeam.config.get('namespace', ''), swagger, endpoint)
+            for k in payload.keys():
+                if isinstance(payload[k], list):
+                    subarray_definition = util.resolve_swagger_ref(swagger, endpoint_def)
+                    if subarray_definition:
+                        subarray_ref = subarray_definition['properties'][k].get('items',{}).get('$ref','')
+                        if not self.identity_params_structures.get(subarray_ref, False):
+                            self.identity_params_structures[subarray_ref] = self.lightbeam.api.get_identity_params_from_swagger(swagger, subarray_ref)
+                        if subarray_ref not in self.uniqueness_hashes.keys():
+                            self.uniqueness_hashes[subarray_ref] = []
+                        for i in range(0, len(payload[k])):
+                            value = self.violates_uniqueness(subarray_ref, payload[k][i], path+("." if path!="" else "") + f"{k}[{i}]")
+                            if value!="": return value
+        return ""
+
     
     def load_local_descriptors(self):
         local_descriptors = []
@@ -347,7 +378,7 @@ class Validator:
                 if value!="": return value
             elif isinstance(payload[k], list):
                 for i in range(0, len(payload[k])):
-                    value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
+                    value = self.has_invalid_descriptor_values(payload[k][i], path+("." if path!="" else "") + f"{k}[{i}]")
                     if value!="": return value
             elif isinstance(payload[k], str) and k.endswith("Descriptor"):
                 if "#" not in payload[k]:
