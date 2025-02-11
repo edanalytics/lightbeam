@@ -118,12 +118,13 @@ class Validator:
         data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
         for file_name in data_files:
             with open(file_name) as file:
-                for line_counter, line in enumerate(file):
+                for i, line in enumerate(file):
+                    line_number = i + 1
                     line = line.strip()
                     try:
                         payload = json.loads(line)
                     except Exception as e:
-                        self.logger.warning(f"... (ignoring invalid JSON payload at {line_counter} of {file_name})")
+                        self.logger.warning(f"... (ignoring invalid JSON payload at {line_number} of {file_name})")
                     ref_payload = {}
                     for key in references_structure[endpoint]:
                         key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
@@ -217,12 +218,13 @@ class Validator:
         for file_name in data_files:
             self.logger.info(f"validating {file_name} against {definition} schema...")
             with open(file_name) as file:
-                for line_counter, line in enumerate(file):
+                for i, line in enumerate(file):
+                    line_number = i + 1
                     total_counter += 1
                     data = line.strip()
                         
                     tasks.append(asyncio.create_task(
-                        self.do_validate_payload(endpoint, file_name, data, line_counter)))
+                        self.do_validate_payload(endpoint, file_name, data, line_number)))
                 
                     if len(tasks) >= self.MAX_VALIDATE_TASK_QUEUE_SIZE:
                         await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
@@ -243,6 +245,11 @@ class Validator:
 
             if len(tasks)>0: await self.lightbeam.do_tasks(tasks, total_counter, log_status_counts=False)
 
+            # update metadata counts
+            self.lightbeam.metadata["resources"][endpoint]["records_processed"] = total_counter
+            self.lightbeam.metadata["resources"][endpoint]["records_skipped"] = self.lightbeam.num_skipped
+            self.lightbeam.metadata["resources"][endpoint]["records_failed"] = self.lightbeam.num_errors
+            
             if self.lightbeam.num_errors==0: self.logger.info(f"... all lines validate ok!")
             else:
                 num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY
@@ -257,14 +264,14 @@ class Validator:
         self.schema_validator = None
 
 
-    async def do_validate_payload(self, endpoint, file_name, data, line_counter):
+    async def do_validate_payload(self, endpoint, file_name, data, line_number):
         if self.fail_fast_threshold is not None and self.lightbeam.num_errors >= self.fail_fast_threshold: return
         
         # check payload is valid JSON
         try:
             payload = json.loads(data)
         except Exception as e:
-            self.log_validation_error(endpoint, file_name, line_counter, "json", f"invalid JSON {str(e).replace(' line 1','')}")
+            self.log_validation_error(endpoint, file_name, line_number, "json", f"invalid JSON {str(e).replace(' line 1','')}")
             return
 
         # check payload obeys Swagger schema
@@ -275,14 +282,14 @@ class Validator:
                 e_path = [str(x) for x in list(e.path)]
                 context = ""
                 if len(e_path)>0: context = " in " + " -> ".join(e_path)
-                self.log_validation_error(endpoint, file_name, line_counter, "schema", f"{str(e.message)} {context}")
+                self.log_validation_error(endpoint, file_name, line_number, "schema", f"{str(e.message)} {context}")
                 return
 
         # check descriptor values are valid
         if "descriptors" in self.validation_methods:
             error_message = self.has_invalid_descriptor_values(payload, path="")
             if error_message != "":
-                self.log_validation_error(endpoint, file_name, line_counter, "descriptors", error_message)
+                self.log_validation_error(endpoint, file_name, line_number, "descriptors", error_message)
                 return
 
         # check natural keys are unique
@@ -298,7 +305,7 @@ class Validator:
             self.lightbeam.api.do_oauth()
             error_message = self.has_invalid_references(payload, path="")
             if error_message != "":
-                self.log_validation_error(endpoint, file_name, line_counter, "references", error_message)
+                self.log_validation_error(endpoint, file_name, line_number, "references", error_message)
                 
                 
     def log_validation_error(self, endpoint, file_name, line_number, method, message):

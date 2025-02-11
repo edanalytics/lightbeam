@@ -55,7 +55,7 @@ class Lightbeam:
     MAX_STATUS_REASONS_TO_DISPLAY = 10
     DATA_FILE_EXTENSIONS = ['json', 'jsonl', 'ndjson']
     
-    def __init__(self, config_file, logger=None, selector="*", exclude="", keep_keys="*", drop_keys="", query="{}", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes="", results_file=""):
+    def __init__(self, config_file, logger=None, selector="*", exclude="", keep_keys="*", drop_keys="", query="{}", params="", wipe=False, force=False, older_than="", newer_than="", resend_status_codes="", results_file="", overrides={}):
         self.config_file = config_file
         self.logger = logger
         self.errors = 0
@@ -82,12 +82,16 @@ class Lightbeam:
         self.token_version = 0        
         self.results_file = os.path.abspath(results_file) if results_file else None
         self.start_timestamp = datetime.now()
+        self.overrides = overrides
 
         # load params and/or env vars for config YAML interpolation
         self.params = json.loads(params) if params else {}
         user_config = self.load_config_file()
-        
         self.config = util.merge_dicts(user_config, self.config_defaults)
+        
+        # inject overrides into config
+        if self.overrides: self.inject_cli_overrides()
+
         if "state_dir" in self.config:
             self.track_state = True
             self.config["state_dir"] = os.path.expanduser(self.config["state_dir"])
@@ -128,6 +132,39 @@ class Lightbeam:
             "namespace": self.config["namespace"],
             "resources": {}
         }
+    
+    def inject_cli_overrides(self):
+        # parse self.overrides into configs:
+        for key, value in self.overrides.items():
+            self.config = Lightbeam.set_path(self.config, key, value)
+
+    @staticmethod
+    def set_path(my_dict, path, value):
+        path_pieces = path.split(".")
+        current = my_dict
+        for path_piece in path_pieces[:-1]:
+            if path_piece not in current.keys():
+                current[path_piece] = {}
+            current = current[path_piece]
+        current[path_pieces[-1]] = Lightbeam.autocast(value)
+        return my_dict
+    
+    @staticmethod
+    def autocast(value):
+        if value.lower() in ['true', 'yes', 'on', 't', 'y']:
+            return True
+        elif value.lower() in ['false', 'no', 'off', 'f', 'n']:
+            return False
+        elif '.' in value:
+            try:
+                return float(value)
+            except ValueError:
+                return value
+        else:
+            try:
+                return int(value)
+            except ValueError:
+                return value
     
     # this is intended to be called before any CRITICAL errors;
     # any cleanup tasks should go here:
@@ -255,9 +292,10 @@ class Lightbeam:
                         if os.path.isfile(sub_dir_item_path):
                             filename = os.path.basename(sub_dir_item)
                             extension = filename.rsplit(".", 1)[-1]
+                            filename_without_extension = filename.rsplit(".", 1)[0]
                             if (
                                 extension in self.DATA_FILE_EXTENSIONS # valid file extension
-                                and filename_without_extension in self.all_endpoints # valid endpoint
+                                and data_dir_item in self.all_endpoints # valid endpoint
                                 and data_dir_item in filter_endpoints # selected endpoint
                             ):
                                 has_data_file = True
