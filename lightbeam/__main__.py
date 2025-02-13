@@ -23,6 +23,7 @@ ALLOWED_COMMANDS = {
    "truncate": "truncate",
    "count": "count",
    "fetch": "fetch",
+   "create": "create"
 }
 command_list = ', '.join(f"'{c}'" for c in ALLOWED_COMMANDS.values())
 
@@ -175,6 +176,7 @@ def main(argv=None):
     try:
         logger.info("starting...")
         if args.command==ALLOWED_COMMANDS['count']: lb.counter.count()
+        if args.command==ALLOWED_COMMANDS['create']: lb.creator.create()
         elif args.command==ALLOWED_COMMANDS['fetch']: lb.fetcher.fetch()
         elif args.command==ALLOWED_COMMANDS['validate']: lb.validator.validate()
         elif args.command==ALLOWED_COMMANDS['send']: lb.sender.send()
