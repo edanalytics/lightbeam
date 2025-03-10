@@ -217,10 +217,12 @@ class Validator:
         
         for file_name in data_files:
             self.logger.info(f"validating {file_name} against {definition} schema...")
+            file_counter = 0
             with open(file_name) as file:
                 for i, line in enumerate(file):
                     line_number = i + 1
                     total_counter += 1
+                    file_counter += 1
                     data = line.strip()
                         
                     tasks.append(asyncio.create_task(
@@ -255,7 +257,7 @@ class Validator:
                 num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY
                 if self.lightbeam.num_errors > self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                     self.logger.warn(f"... and {num_others} others!")
-                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_counter} lines in {file_name}; see details above.")
+                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {file_counter} lines in {file_name}; see details above.")
         
         # free up some memory
         self.uniqueness_hashes = {}
@@ -298,7 +300,7 @@ class Validator:
         if "uniqueness" in self.validation_methods:
             error_message = self.violates_uniqueness(endpoint, payload, path="")
             if error_message != "":
-                self.log_validation_error(endpoint, file_name, line_counter, "uniqueness", error_message)
+                self.log_validation_error(endpoint, file_name, line_number, "uniqueness", error_message)
             
         # check references values are valid
         if "references" in self.validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
