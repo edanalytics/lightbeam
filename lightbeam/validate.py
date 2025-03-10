@@ -146,7 +146,7 @@ class Validator:
         prefixes_to_remove = ["#/definitions/", "#/components/schemas/"]
         for k in schema["properties"].keys():
             if k.endswith("Reference"):
-                original_endpoint = util.pluralize_endpoint(k.replace("Reference", ""))
+                original_endpoint = self.resolve_reference_to_endpoint(k)
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
@@ -409,7 +409,7 @@ class Validator:
                     if value!="": return value
             elif isinstance(payload[k], dict) and k.endswith("Reference"):
                 is_valid_reference = False
-                original_endpoint = util.pluralize_endpoint(k.replace("Reference",""))
+                original_endpoint = self.resolve_reference_to_endpoint(k)
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
@@ -434,6 +434,19 @@ class Validator:
                         return f"payload contains an invalid {k} " + (" (at "+path+"): " if path!="" else ": ") + json.dumps(params)
         return ""
 
+    @staticmethod
+    def resolve_reference_to_endpoint(referenceName):
+        endpoint = referenceName
+        # remove final "Reference"
+        if endpoint.endswith("Reference"):
+            endpoint = endpoint[:-1*len("Reference")]
+        # remove leading "parent" if whole endpoint name isn't just "parent"
+        # (this handles things like parentObjectiveAssessmentReference)
+        if endpoint.startswith("parent") and endpoint!="parent":
+            endpoint = endpoint[len("parent"):]
+            endpoint = endpoint[0].lower() + endpoint[1:]
+        return util.pluralize_endpoint(endpoint)
+
     # Tells you if a specified descriptor value is valid or not
     def is_valid_descriptor_value(self, namespace, codeValue):
         for row in self.lightbeam.api.descriptor_values:
@@ -444,7 +457,9 @@ class Validator:
     @staticmethod
     def get_cache_key(payload):
         cache_key = ''
-        for k in payload.keys():
+        payload_keys = list(payload.keys())
+        payload_keys.sort()
+        for k in payload_keys:
             cache_key += f"{payload[k]}~~~"
         return cache_key
     
