@@ -146,7 +146,7 @@ class Validator:
         prefixes_to_remove = ["#/definitions/", "#/components/schemas/"]
         for k in schema["properties"].keys():
             if k.endswith("Reference"):
-                original_endpoint = util.pluralize_endpoint(k.replace("Reference", ""))
+                original_endpoint = self.resolve_reference_to_endpoint(k)
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
@@ -217,10 +217,12 @@ class Validator:
         
         for file_name in data_files:
             self.logger.info(f"validating {file_name} against {definition} schema...")
+            file_counter = 0
             with open(file_name) as file:
                 for i, line in enumerate(file):
                     line_number = i + 1
                     total_counter += 1
+                    file_counter += 1
                     data = line.strip()
                         
                     tasks.append(asyncio.create_task(
@@ -255,7 +257,7 @@ class Validator:
                 num_others = self.lightbeam.num_errors - self.MAX_VALIDATION_ERRORS_TO_DISPLAY
                 if self.lightbeam.num_errors > self.MAX_VALIDATION_ERRORS_TO_DISPLAY:
                     self.logger.warn(f"... and {num_others} others!")
-                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {line_counter} lines in {file_name}; see details above.")
+                self.logger.warn(f"... VALIDATION ERRORS on {self.lightbeam.num_errors} of {file_counter} lines in {file_name}; see details above.")
         
         # free up some memory
         self.uniqueness_hashes = {}
@@ -298,7 +300,7 @@ class Validator:
         if "uniqueness" in self.validation_methods:
             error_message = self.violates_uniqueness(endpoint, payload, path="")
             if error_message != "":
-                self.log_validation_error(endpoint, file_name, line_counter, "uniqueness", error_message)
+                self.log_validation_error(endpoint, file_name, line_number, "uniqueness", error_message)
             
         # check references values are valid
         if "references" in self.validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
@@ -409,7 +411,7 @@ class Validator:
                     if value!="": return value
             elif isinstance(payload[k], dict) and k.endswith("Reference"):
                 is_valid_reference = False
-                original_endpoint = util.pluralize_endpoint(k.replace("Reference",""))
+                original_endpoint = self.resolve_reference_to_endpoint(k)
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
@@ -434,6 +436,19 @@ class Validator:
                         return f"payload contains an invalid {k} " + (" (at "+path+"): " if path!="" else ": ") + json.dumps(params)
         return ""
 
+    @staticmethod
+    def resolve_reference_to_endpoint(referenceName):
+        endpoint = referenceName
+        # remove final "Reference"
+        if endpoint.endswith("Reference"):
+            endpoint = endpoint[:-1*len("Reference")]
+        # remove leading "parent" if whole endpoint name isn't just "parent"
+        # (this handles things like parentObjectiveAssessmentReference)
+        if endpoint.startswith("parent") and endpoint!="parent":
+            endpoint = endpoint[len("parent"):]
+            endpoint = endpoint[0].lower() + endpoint[1:]
+        return util.pluralize_endpoint(endpoint)
+
     # Tells you if a specified descriptor value is valid or not
     def is_valid_descriptor_value(self, namespace, codeValue):
         for row in self.lightbeam.api.descriptor_values:
@@ -444,7 +459,9 @@ class Validator:
     @staticmethod
     def get_cache_key(payload):
         cache_key = ''
-        for k in payload.keys():
+        payload_keys = list(payload.keys())
+        payload_keys.sort()
+        for k in payload_keys:
             cache_key += f"{payload[k]}~~~"
         return cache_key
     
