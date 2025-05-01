@@ -34,20 +34,19 @@ class EdFiAPI:
             api_base = requests.get(self.config["base_url"],
                                     verify=self.lightbeam.config["connection"]["verify_ssl"])
         except Exception as e:
-            self.logger.critical("could not connect to {0} ({1})".format(self.config["base_url"], str(e)))
+            try:
+                swapped_base_url = self.config["base_url"]
+                if "http://" in swapped_base_url: swapped_base_url = swapped_base_url.replace("http://", "https://")
+                else: swapped_base_url = swapped_base_url.replace("https://", "http://")
+                api_base = requests.get(swapped_base_url, verify=self.lightbeam.config["connection"]["verify_ssl"])
+
+            except Exception as e:
+                self.logger.critical("could not connect to {0} ({1})".format(self.config["base_url"], str(e)))
         
         try:
             api_base = api_base.json()
         except Exception as e:
             self.logger.critical("could not parse response from {0} ({1})".format(self.config["base_url"], str(e)))
-
-        # If urls are 'http', change to 'https'
-        for k,v in api_base["urls"].items():
-            v = v.split(':')
-            if v[0] == 'http':
-                v[0] = 'https'
-            v = f"{v[0]}:{v[1]}"
-            api_base["urls"][k] = v
 
         self.config["oauth_url"] = api_base["urls"]["oauth"]
         self.config["dependencies_url"] = api_base["urls"]["dependencies"]
