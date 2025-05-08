@@ -196,9 +196,7 @@ class EdFiAPI:
                 else:
                     self.logger.debug(f"fetching {endpoint_type} swagger doc...")
                     try:
-                        response = requests.get(swagger_url,
-                                                    verify=self.lightbeam.config["connection"]["verify_ssl"]
-                                                    )
+                        response = self.get_with_protocol_fallback(self.config[endpoint_type], endpoint_type)
                         if not response.ok:
                             raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
                         swagger = response.json()
