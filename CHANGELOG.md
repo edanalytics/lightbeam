@@ -1,5 +1,16 @@
-### Unreleased changes
-* bugfix: `validate` and `send` could incorrect number of total records
+### v0.1.7
+<details>
+<summary>Released 2025-05-08</summary>
+
+* bugfix: discovery of data in subfolders of `data_dir` by @tomreitz in https://github.com/edanalytics/lightbeam/pull/66
+* bugfix: structured results record counts by @tomreitz in https://github.com/edanalytics/lightbeam/pull/60
+* bugfix: validation error message shows the wrong number of records by @johncmerfeld in https://github.com/edanalytics/lightbeam/pull/65
+* feature: adds a `--set` flag to the CLI to enable overriding config values in `lightbeam.yml` by @tomreitz in https://github.com/edanalytics/lightbeam/pull/63
+* bugfix: `validate` uniqueness fixes and recurse into array elements, other improvements by @tomreitz in https://github.com/edanalytics/lightbeam/pull/67
+* bugfix: eplace obsolete links to Ed-Fi Tech Docs by @stephenfuqua in https://github.com/edanalytics/lightbeam/pull/70
+* bugfix: self-reference validation by @tomreitz in https://github.com/edanalytics/lightbeam/pull/71
+* feature: protocol (http/https) fall-back for discovery URLs if not found by @ryanaguilar in https://github.com/edanalytics/lightbeam/pull/74
+</details>
 
 ### v0.1.6
 <details>
