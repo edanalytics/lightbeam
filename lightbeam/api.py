@@ -98,14 +98,28 @@ class EdFiAPI:
     # Obtains an OAuth token from the API and sets the client headers accordingly
     def do_oauth(self):
         try:
-            token_response = requests.post(
-                self.config["oauth_url"],
-                data={"grant_type":"client_credentials"},
-                auth=(
-                    self.config["client_id"],
-                    self.config["client_secret"]
-                    ),
-                verify=self.lightbeam.config["connection"]["verify_ssl"])
+            try:
+                token_response = requests.post(
+                    self.config["oauth_url"],
+                    data={"grant_type":"client_credentials"},
+                    auth=(
+                        self.config["client_id"],
+                        self.config["client_secret"]
+                        ),
+                    verify=self.lightbeam.config["connection"]["verify_ssl"])
+            except Exception as e:
+                try:
+                    swapped_url = self.config["oauth_url"].replace("http://", "https://") if "http://" in self.config["oauth_url"] else self.config["oauth_url"].replace("https://", "http://")
+                    token_response = requests.post(
+                        swapped_url,
+                        data={"grant_type":"client_credentials"},
+                        auth=(
+                            self.config["client_id"],
+                            self.config["client_secret"]
+                            ),
+                        verify=self.lightbeam.config["connection"]["verify_ssl"])
+                except Exception as e:
+                    self.logger.critical(f"could not reach {self.config['oauth_url']} ({str(e)})")    
             self.token = token_response.json()["access_token"]
             self.headers = {
                     "accept": "application/json",
