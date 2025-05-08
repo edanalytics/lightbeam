@@ -30,8 +30,7 @@ class EdFiAPI:
         # fetch/set up Ed-Fi API URLs
         try:
             self.logger.debug("fetching base_url...")
-            api_base = requests.get(self.config["base_url"],
-                                    verify=self.lightbeam.config["connection"]["verify_ssl"])
+            api_base = self.get_with_protocol_fallback(self.config["base_url"], 'base_url')
         except Exception as e:
             self.logger.critical("could not connect to {0} ({1})".format(self.config["base_url"], str(e)))
         
@@ -153,8 +152,7 @@ class EdFiAPI:
     def get_sorted_endpoints(self):
         self.logger.debug("fetching resource dependencies...")
         try:
-            response = requests.get(self.config["dependencies_url"],
-                                    verify=self.lightbeam.config["connection"]["verify_ssl"])
+            response = self.get_with_protocol_fallback(self.config["dependencies_url"], 'dependencies_url')
             if response.status_code not in [ 200, 201 ]:
                 raise Exception("Dependencies URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
             data = response.json()
@@ -191,8 +189,7 @@ class EdFiAPI:
             # grab Descriptors and Resources swagger URLs
             try:
                 self.logger.debug("fetching swagger docs...")
-                response = requests.get(self.config["open_api_metadata_url"],
-                                        verify=self.lightbeam.config["connection"]["verify_ssl"])
+                response = self.get_with_protocol_fallback(self.config["open_api_metadata_url"], 'open_api_metadata_url')
                 if not response.ok:
                     raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
                 openapi = response.json()
@@ -233,9 +230,7 @@ class EdFiAPI:
                 else:
                     self.logger.debug(f"fetching {endpoint_type} swagger doc...")
                     try:
-                        response = requests.get(swagger_url,
-                                                    verify=self.lightbeam.config["connection"]["verify_ssl"]
-                                                    )
+                        response = self.get_with_protocol_fallback(self.config[endpoint_type], endpoint_type)
                         if not response.ok:
                             raise Exception("OpenAPI metadata URL returned status {0} ({1})".format(response.status_code, (response.content[:75] + "...") if len(response.content)>75 else response.content))
                         swagger = response.json()
@@ -375,3 +370,14 @@ class EdFiAPI:
             elif "type" in schema["properties"][prop].keys() and schema["properties"][prop]["type"]!="array" and "x-Ed-Fi-isIdentity" in schema["properties"][prop].keys():
                 params[prop] = prefix + prop
         return params
+    
+    def get_with_protocol_fallback(self, url, url_type):
+        self.logger.debug(f"fetching {url_type}...")
+        try:
+            return requests.get(url, verify=self.lightbeam.config["connection"]["verify_ssl"])
+        except Exception as e:
+            try:
+                swapped_url = url.replace("http://", "https://") if "http://" in url else url.replace("https://", "http://")
+                return requests.get(swapped_url, verify=self.lightbeam.config["connection"]["verify_ssl"])
+            except Exception as e:
+                self.logger.critical(f"could not reach {url_type} {url} ({str(e)})")
