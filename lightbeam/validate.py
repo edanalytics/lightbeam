@@ -15,17 +15,6 @@ class Validator:
     MAX_VALIDATE_TASK_QUEUE_SIZE = 100
     DEFAULT_VALIDATION_METHODS = ["schema", "descriptors", "uniqueness"]
 
-    EDFI_GENERICS_TO_RESOURCES_MAPPING = {
-        "educationOrganizations": ["localEducationAgencies", "stateEducationAgencies", "schools"],
-    }
-    EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING = {
-        "educationOrganizationId": {
-            "localEducationAgencies": "localEducationAgencyId",
-            "stateEducationAgencies": "stateEducationAgencyId",
-            "schools": "schoolId",
-        },
-    }
-
     def __init__(self, lightbeam=None):
         self.lightbeam = lightbeam
         self.logger = self.lightbeam.logger
@@ -80,7 +69,7 @@ class Validator:
         references_structure = self.rebalance_local_references_structure(references_structure)
         # more memory-efficient to load local data and populate cache for one endpoint at a time:
         for original_endpoint in references_structure.keys():
-            endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
+            endpoints_to_check = self.lightbeam.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
             for endpoint in endpoints_to_check:
                 if endpoint in self.local_reference_cache.keys():
                     # already loaded (when validating another endpoint); no need to reload
@@ -127,7 +116,7 @@ class Validator:
                         self.logger.warning(f"... (ignoring invalid JSON payload at {line_number} of {file_name})")
                     ref_payload = {}
                     for key in references_structure[endpoint]:
-                        key = self.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
+                        key = self.lightbeam.EDFI_GENERIC_REFS_TO_PROPERTIES_MAPPING.get(key, {}).get(endpoint, key)
                         tmpdata = payload
                         for subkey in key.split("."):
                             tmpdata = tmpdata[subkey]
@@ -149,7 +138,7 @@ class Validator:
                 original_endpoint = self.resolve_reference_to_endpoint(k)
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
-                endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
+                endpoints_to_check = self.lightbeam.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
                 
                 for endpoint in endpoints_to_check:
                     ref_definition = schema["properties"][k]["$ref"]
@@ -414,7 +403,7 @@ class Validator:
                 original_endpoint = self.resolve_reference_to_endpoint(k)
 
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
-                endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
+                endpoints_to_check = self.lightbeam.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
                 for endpoint in endpoints_to_check:
                     # check if it's a local reference:
                     if endpoint not in self.local_reference_cache.keys(): break
