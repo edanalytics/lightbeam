@@ -351,8 +351,7 @@ class Validator:
                         subarray_ref = subarray_definition['properties'][k].get('items',{}).get('$ref','')
                         if not self.identity_params_structures.get(subarray_ref, False):
                             self.identity_params_structures[subarray_ref] = self.lightbeam.api.get_identity_params_from_swagger(swagger, subarray_ref)
-                        if subarray_ref not in self.uniqueness_hashes.keys():
-                            self.uniqueness_hashes[subarray_ref] = []
+                        self.uniqueness_hashes[subarray_ref] = []
                         for i in range(0, len(payload[k])):
                             value = self.violates_uniqueness(subarray_ref, payload[k][i], path+("." if path!="" else "") + f"{k}[{i}]")
                             if value!="": return value
