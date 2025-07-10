@@ -11,6 +11,7 @@ from yaml.loader import SafeLoader
 from lightbeam import util
 from lightbeam.api import EdFiAPI
 from lightbeam.count import Counter
+from lightbeam.create import Creator
 from lightbeam.fetch import Fetcher
 from lightbeam.validate import Validator
 from lightbeam.send import Sender
@@ -73,6 +74,7 @@ class Lightbeam:
         self.endpoints = []
         self.results = []
         self.counter = Counter(self)
+        self.creator = Creator(self)
         self.fetcher = Fetcher(self)
         self.validator = Validator(self)
         self.sender = Sender(self)
