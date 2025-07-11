@@ -64,6 +64,19 @@ count:
   separator: ,
 fetch:
   page_size: 100
+validate:
+  methods:
+    - schema # checks that payloads conform to the Swagger definitions from the API
+    - descriptors # checks that descriptor values are either locally-defined or exist in the remote API
+    - uniqueness # checks that local payloads are unique by the required property values
+    - references # checks that references resolve, either locally or in the remote API
+  # or `methods: "*"`
+  references:
+    selector:
+      - studentAssessments.studentReference
+      - studentSchoolAssociations.schoolReference
+    behavior: exclude # or `include`
+    remote: False # default=True
 force_delete: True
 log_level: INFO
 show_stacktrace: True
@@ -94,6 +107,7 @@ show_stacktrace: True
   * (optional) Whether to `verify_ssl`. The default is `True`. Set to `False` when working with `localhost` APIs or to live dangerously.
 * (optional) for [`lightbeam count`](#count), optionally change the `separator` between `Records` and `Endpoint`. The default is a "tab" character.
 * (optional) for [`lightbeam fetch`](#fetch), optionally specify the number of records (`page_size`) to GET at a time. The default is 100, but if you're trying to extract lots of data from an API increase this to the largest allowed (which depends on the API, but is often 500 or even 5000).
+* (optional) for [`lightbeam validate`](#validate), optionally specify the list of validation `methods` to run (from `schema`, `descriptors`, `uniqueness`, and `references`). If validating `references`, specify a list of `selector`s to either `include` or `exclude` (`behavior`) when validating. Also optionally disable `remote` referece validation (enabled by default).
 * (optional) Skip the interactive confirmation prompt (for programmatic use) when using the [`delete`](#delete) command. The default is `False` (prompt).
 * (optional) Specify a `log_level` for output. Possible values are
   - `ERROR`: only output errors like missing required sources, invalid references, invalid [YAML configuration](#yaml-configuration), etc.
@@ -217,6 +231,17 @@ Running the `truncate` command will prompt you to type "yes" to confirm. This co
 
 `truncate` is a convenience command which should be used sparingly, as it can generate large numbers of `deletes` records and cause performance issues when pulling from `deletes` endpoints. If you want to wipe an entire Ed-Fi ODS, a better approach may be to drop and recreate the database (and re-send Descriptors and other default resources as needed).
 
+## `create`
+```bash
+lightbeam create -s students,schools,studentSchoolAssociations -c path/to/config.yaml
+```
+Creates a skeleton of an [`earthmover`](https://edanalytics.github.io/earthmover/) project for _creating_ JSONL Ed-Fi data which one can then `lightbeam send` to an Ed-Fi API. It uses the Ed-Fi API's [OpenAPI specification](https://spec.openapis.org/oas/latest.html) to determine the schema of the endpoints you select (`lightbeam create` should usually be used with the `-s` [selector](#selectors)). Then, in the current directory, it:
+* creates (if it doesn't already exist, otherwise adds/overwrites) a partial `earthmover.yml` configuration file with empty `sources` and `transformations` but `destinations` for each selected endpoint, plus comments indicating what column names and data types/values are required, and the required grain of the table (based on `isIdentity` flags in the OpenAPI definitions)
+* creates (or overwrites) `templates/*.jsont` for each selected endpoint, with skeleton Jinja-JSON that includes all the required fields (including nested ones), optional fields wrapped in conditionals, and comments with some of the property metadata from OpenAPI definitions, such as `type`, `description`, `isIdentity`, etc.
+
+The purpose of `lightbeam create` is to save developers time if they want to use `earthmover` to create Ed-Fi-shaped data from other data sources. See the [`earthmover` documentation](https://edanalytics.github.io/earthmover/) for more information.
+
+
 ## Other options
 See a help message with
 ```bash
@@ -229,6 +254,14 @@ See the tool version with
 lightbeam -v
 lightbeam --version
 ```
+
+Override specific configurations in `lightbeam.yml` from the command-line using the `--set` flag
+```
+lightbeam fetch --set fetch.page_size 1000
+lightbeam validate --set log_level WARN show_stacktrace True
+lightbeam send --set connection.timeout 15
+```
+(`--set` must be followed by a set of key-value pairs.)
 
 
 # Features
