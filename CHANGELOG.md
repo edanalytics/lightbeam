@@ -1,3 +1,13 @@
+### v0.1.8
+<details>
+<summary>Released 2025-07-11</summary>
+* bugfix: subarray uniqueness bug by @tomreitz in https://github.com/edanalytics/lightbeam/pull/76
+* bugfix: GET deletes by identity, not required params by @tomreitz in https://github.com/edanalytics/lightbeam/pull/68
+* feature: implement case flexibility for data discovery by @tomreitz in https://github.com/edanalytics/lightbeam/pull/31 and https://github.com/edanalytics/lightbeam/pull/77
+* feature: implementation of new `lightbeam create` functionality by @tomreitz in https://github.com/edanalytics/lightbeam/pull/56
+* feature: implementing validate references selector, behavior and remote switch, plus update docs by @tomreitz in https://github.com/edanalytics/lightbeam/pull/61
+</details>
+
 ### v0.1.7
 <details>
 <summary>Released 2025-05-08</summary>
