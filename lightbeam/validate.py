@@ -39,7 +39,17 @@ class Validator:
         if type(self.validation_methods)==str and (self.validation_methods=="*" or self.validation_methods.lower()=='all'):
             self.validation_methods = self.DEFAULT_VALIDATION_METHODS
             self.validation_methods.append("references")
-        
+        self.validation_references_selector = self.lightbeam.config.get("validate",{}).get("references",{}).get("selector", [])
+        for selector in self.validation_references_selector:
+            if "." not in selector:
+                self.logger.error(f"`config.validate.references.selector` {selector} is incorrectly formatted (should be `someEndpoint.someReference`, such as `studentSchoolAssociation.schoolReference`)")
+        self.validation_references_behavior = self.lightbeam.config.get("validate",{}).get("references",{}).get("behavior", "exclude")
+        if self.validation_references_behavior not in ["exclude", "include"]:
+            self.logger.error(f"`config.validate.references.behavior` must be either `exclude` (default) or `include`)")
+        self.validation_references_remote = self.lightbeam.config.get("validate",{}).get("references",{}).get("remote", True)
+        if "references" in self.validation_methods and not self.validation_references_remote:
+            self.logger.info(f"(references will only be validated against local data, since `config.validate.references.remote: False`)")
+
         self.lightbeam.api.load_swagger_docs()
         self.logger.info(f"validating by methods {self.validation_methods}...")
         if "descriptors" in self.validation_methods:
@@ -305,7 +315,7 @@ class Validator:
         # check references values are valid
         if "references" in self.validation_methods and "Descriptor" not in endpoint: # Descriptors have no references
             self.lightbeam.api.do_oauth()
-            error_message = self.has_invalid_references(payload, path="")
+            error_message = self.has_invalid_references(endpoint, payload, path="")
             if error_message != "":
                 self.log_validation_error(endpoint, file_name, line_number, "references", error_message)
                 
@@ -399,40 +409,46 @@ class Validator:
         return ""
 
     # Validates descriptor values for a single payload (returns an error message or empty string)
-    def has_invalid_references(self, payload, path=""):
+    def has_invalid_references(self, endpoint, payload, path=""):
         for k in payload.keys():
             if isinstance(payload[k], dict) and not k.endswith("Reference"):
-                value = self.has_invalid_references(payload[k], path+("." if path!="" else "")+k)
+                value = self.has_invalid_references(endpoint, payload[k], path+("." if path!="" else "")+k)
                 if value!="": return value
             elif isinstance(payload[k], list):
                 for i in range(0, len(payload[k])):
-                    value = self.has_invalid_references(payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
+                    value = self.has_invalid_references(endpoint, payload[k][i], path+("." if path!="" else "")+k+"["+str(i)+"]")
                     if value!="": return value
             elif isinstance(payload[k], dict) and k.endswith("Reference"):
+                check_this_reference = (
+                    (f"{endpoint}.{path}{k}" in self.validation_references_selector and self.validation_references_behavior=="include")
+                    or (f"{endpoint}.{path}{k}" not in self.validation_references_selector and self.validation_references_behavior=="exclude")
+                )
+                if not check_this_reference: continue
                 is_valid_reference = False
                 original_endpoint = self.resolve_reference_to_endpoint(k)
 
+                params = payload[k].copy()
+                if "link" in params.keys(): del params["link"]
+                
                 # this deals with the fact that an educationOrganizationReference may be to a school, LEA, etc.:
                 endpoints_to_check = self.EDFI_GENERICS_TO_RESOURCES_MAPPING.get(original_endpoint, [original_endpoint])
-                for endpoint in endpoints_to_check:
+                for endpt in endpoints_to_check:
                     # check if it's a local reference:
-                    if endpoint not in self.local_reference_cache.keys(): break
+                    if endpt not in self.local_reference_cache.keys(): break
                     # construct cache_key for reference
-                    cache_key = self.get_cache_key(payload[k])
-                    if cache_key in self.local_reference_cache[endpoint]:
+                    cache_key = self.get_cache_key(params)
+                    if cache_key in self.local_reference_cache[endpt]:
                         is_valid_reference = True
                         break
-                if not is_valid_reference: # not found in local data...
-                    for endpoint in endpoints_to_check:
+                if not is_valid_reference and self.validation_references_remote: # not found in local data...
+                    for endpt in endpoints_to_check:
                         # check if it's a remote reference:
-                        params = payload[k].copy()
-                        if "link" in params.keys(): del params["link"]
-                        value = self.remote_reference_exists(endpoint, params)
+                        value = self.remote_reference_exists(endpt, params)
                         if value:
                             is_valid_reference = True
                             break
-                    if not is_valid_reference:
-                        return f"payload contains an invalid {k} " + (" (at "+path+"): " if path!="" else ": ") + json.dumps(params)
+                if not is_valid_reference:
+                    return f"payload contains an invalid {k} " + (" (at "+path+"): " if path!="" else ": ") + json.dumps(params)
         return ""
 
     @staticmethod
@@ -497,7 +513,7 @@ class Validator:
                     else:
                         pass # await asyncio.sleep(1)
                     curr_token_version = int(str(self.lightbeam.token_version))
-                elif status=='404':
+                elif status=='404' or status=='400':
                     return False
                 elif status in ['200', '201']:
                     # 200 response might still return zero matching records...
