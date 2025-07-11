@@ -264,13 +264,21 @@ class Lightbeam:
             camelcase_endpoint = endpoint[0].upper() + endpoint[1:]
             for cased_endpoint in [endpoint, camelcase_endpoint, endpoint.lower(), endpoint.upper()]:
                 possible_file = os.path.join(self.config["data_dir"], cased_endpoint + "." + ext)
+                file_added = False
                 if os.path.isfile(possible_file):
                     file_list.append(possible_file)
+                    file_added = True
                 possible_dir = os.path.join(self.config["data_dir"] + cased_endpoint)
                 if os.path.isdir(possible_dir):
                     for file in os.listdir(possible_dir):
                         if file.endswith("." + ext):
                             file_list.append(os.path.join(self.config["data_dir"], cased_endpoint, file))
+                            file_added = True
+                # On some systems, `os.path.isfile()` is case-insensitive, so it would return `True`
+                # for both `Students.jsonl` and `students.jsonl`... this ensures only one is added
+                # to `file_list`, to prevent duplicates.
+                if file_added: break
+
         return file_list
 
     # Prunes the list of endpoints down to those for which .jsonl files exist in the config.data_dir
