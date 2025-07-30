@@ -415,10 +415,11 @@ class EdFiAPI:
     def get_with_protocol_fallback(self, url, url_type):
         self.logger.debug(f"fetching {url_type}...")
         try:
-            return requests.get(url, verify=self.lightbeam.config["connection"]["verify_ssl"])
+            return requests.get(url, verify=self.lightbeam.config.get("connection", {}).get("verify_ssl", True))
         except Exception as e:
             try:
                 swapped_url = url.replace("http://", "https://") if "http://" in url else url.replace("https://", "http://")
-                return requests.get(swapped_url, verify=self.lightbeam.config["connection"]["verify_ssl"])
+                return requests.get(swapped_url, verify=self.lightbeam.config.get("connection", {}).get("verify_ssl", True))
             except Exception as e:
+                print(e)
                 self.logger.critical(f"could not reach {url_type} {url} ({str(e)})")
