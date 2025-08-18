@@ -200,7 +200,7 @@ class Sender:
 
                             # update output and counters
                             if response.status==400:
-                                raise Exception("; ".join(messages))
+                                raise ValueError("; ".join(messages))
                             else:
                                 self.lightbeam.num_errors += 1
 
@@ -226,7 +226,7 @@ class Sender:
 
             except RuntimeError as e:
                 await asyncio.sleep(1)
-            except Exception as e:
+            except ValueError as e:
                 status = 400
                 self.lightbeam.num_errors += 1
                 self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line_number, file_name))
