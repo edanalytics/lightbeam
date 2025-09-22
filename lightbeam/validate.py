@@ -347,10 +347,10 @@ class Validator:
             swagger = self.lightbeam.api.resources_swagger
             endpoint_def = util.get_swagger_ref_for_endpoint(self.lightbeam.config.get('namespace', ''), swagger, endpoint)
             for k in payload.keys():
-                print(f"{line_number} | {k}")
                 if isinstance(payload[k], list):
                     subarray_definition = util.resolve_swagger_ref(swagger, endpoint_def)
                     if subarray_definition:
+                        print(f"{line_number} | {subarray_definition['properties']}")
                         subarray_ref = subarray_definition['properties'][k].get('items',{}).get('$ref','')
                         if not self.identity_params_structures.get(subarray_ref, False):
                             self.identity_params_structures[subarray_ref] = self.lightbeam.api.get_identity_params_from_swagger(swagger, subarray_ref)
