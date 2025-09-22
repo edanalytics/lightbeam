@@ -299,7 +299,7 @@ class Validator:
             self.identity_params_structures[endpoint] = self.lightbeam.api.get_params_for_endpoint(endpoint, type='identity')
         if "uniqueness" in self.validation_methods:
             self.logger.error(f"validating uniqueness for {line_number}")
-            error_message = self.violates_uniqueness(endpoint, payload, path="", line_number)
+            error_message = self.violates_uniqueness(endpoint, payload, path="", line_number=line_number)
             if error_message != "":
                 self.log_validation_error(endpoint, file_name, line_number, "uniqueness", error_message)
             
@@ -357,7 +357,7 @@ class Validator:
                         if subarray_ref not in self.uniqueness_hashes.keys():
                             self.uniqueness_hashes[subarray_ref] = []
                         for i in range(0, len(payload[k])):
-                            value = self.violates_uniqueness(subarray_ref, payload[k][i], path+("." if path!="" else "") + f"{k}[{i}]", line_number)
+                            value = self.violates_uniqueness(subarray_ref, payload[k][i], path+("." if path!="" else "") + f"{k}[{i}]", line_number=line_number)
                             if value!="": return value
         return ""
 
