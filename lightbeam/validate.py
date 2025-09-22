@@ -298,7 +298,8 @@ class Validator:
         if not self.identity_params_structures.get(endpoint, False):
             self.identity_params_structures[endpoint] = self.lightbeam.api.get_params_for_endpoint(endpoint, type='identity')
         if "uniqueness" in self.validation_methods:
-            error_message = self.violates_uniqueness(endpoint, payload, path="")
+            self.logger.error(f"validating uniqueness for {line_number}")
+            error_message = self.violates_uniqueness(endpoint, payload, path="", line_number)
             if error_message != "":
                 self.log_validation_error(endpoint, file_name, line_number, "uniqueness", error_message)
             
@@ -334,7 +335,8 @@ class Validator:
             failures.append(failure)
         self.lightbeam.metadata["resources"][endpoint]["failures"] = failures
     
-    def violates_uniqueness(self, endpoint, payload, path=""):
+    def violates_uniqueness(self, endpoint, payload, path="", line_number=""):
+        self.logger.error(f"{line_number} | {payload}")
         params = json.dumps(util.interpolate_params(self.identity_params_structures[endpoint], payload))
         params_hash = hashlog.get_hash(params)
         if params_hash in self.uniqueness_hashes[endpoint]:
@@ -345,6 +347,7 @@ class Validator:
             swagger = self.lightbeam.api.resources_swagger
             endpoint_def = util.get_swagger_ref_for_endpoint(self.lightbeam.config.get('namespace', ''), swagger, endpoint)
             for k in payload.keys():
+                self.logger.error(f"{line_number} | {k}")
                 if isinstance(payload[k], list):
                     subarray_definition = util.resolve_swagger_ref(swagger, endpoint_def)
                     if subarray_definition:
@@ -354,7 +357,7 @@ class Validator:
                         if subarray_ref not in self.uniqueness_hashes.keys():
                             self.uniqueness_hashes[subarray_ref] = []
                         for i in range(0, len(payload[k])):
-                            value = self.violates_uniqueness(subarray_ref, payload[k][i], path+("." if path!="" else "") + f"{k}[{i}]")
+                            value = self.violates_uniqueness(subarray_ref, payload[k][i], path+("." if path!="" else "") + f"{k}[{i}]", line_number)
                             if value!="": return value
         return ""
 
