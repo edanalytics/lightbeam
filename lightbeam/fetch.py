@@ -25,9 +25,24 @@ class Fetcher:
         limit = self.lightbeam.config["fetch"]["page_size"]
         params = json.loads(self.lightbeam.query)
         for endpoint in self.lightbeam.endpoints:
+            
+            # test the query for invalid params (otherwise a typo will
+            # return _all_ records, which might be bad!)
+            if self.lightbeam.query != '':
+                self.lightbeam.api.load_swagger_docs()
+                swagger = self.lightbeam.api.resources_swagger
+                namespace = self.lightbeam.config["namespace"]
+                supported_params = swagger.get("paths", {}).get(f"/{namespace}/{endpoint}", {}).get("get", {}).get("parameters", [])
+                supported_param_names = [ x["name"] for x in supported_params if "name" in x.keys() and "in" in x.keys() and x["in"]=="query" ]
+                if not set(params.keys()).issubset(set(supported_param_names)):
+                    self.logger.warn(f"Query contains keys that are not params for the endpoint {endpoint}... skipping! (Supported params: {(', '.join(supported_param_names))})")
+                    continue
+            
             # figure out how many (paginated) requests we must make
             tasks.append(asyncio.create_task(self.lightbeam.counter.get_record_count(endpoint, params)))
-        await self.lightbeam.do_tasks(tasks, counter, log_status_counts=log_status_counts)
+        
+        if len(tasks) > 0:
+            await self.lightbeam.do_tasks(tasks, counter, log_status_counts=log_status_counts)
         
         tasks = []
         record_counts = self.lightbeam.results
