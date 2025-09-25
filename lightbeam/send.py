@@ -156,31 +156,51 @@ class Sender:
 
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
-                            message = str(response.status) + ": " + util.linearize(json.loads(body).get("message"))
+                            response_body = json.loads(body)
+                            # Prior to Ed-Fi API 7.2 one would get a single (often not very useful)
+                            # error message for each POST. 7.2 introduced better error messages, 
+                            # and the possibility for a single POST to return several errors (if
+                            # different properties of the record fail validation for different
+                            # reasons). Therefore we now track and report each error separately.
+                            messages = []
+                            if "validationErrors" in response_body:
+                                # (Ed-Fi API >= 7.2 style errors)
+                                for json_path in response_body["validationErrors"].keys():
+                                    for error in response_body["validationErrors"][json_path]:
+                                        messages.append(f"{error} (at {json_path})")
+                            elif "errors" in response_body:
+                                # (Ed-Fi API >= 7.2 style errors)
+                                for error in response_body["errors"]:
+                                    messages.append(error)
+
+                            elif "message" in response_body:
+                                # (Ed-Fi API <= 7.1 style errors)
+                                messages.append(str(response.status) + ": " + util.linearize(response_body.get("message", "")))
 
                             # update run metadata...
                             failures = self.lightbeam.metadata["resources"][endpoint].get("failures", [])
-                            do_append = True
-                            for index, item in enumerate(failures):
-                                if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
-                                    failures[index]["line_numbers"].append(line_number)
-                                    failures[index]["count"] += 1
-                                    do_append = False
-                            if do_append:
-                                failure = {
-                                    'status_code': response.status,
-                                    'message': message,
-                                    'file': file_name,
-                                    'line_numbers': [line_number],
-                                    'count': 1
-                                }
-                                failures.append(failure)
+                            for message in messages:
+                                do_append = True
+                                for index, item in enumerate(failures):
+                                    if item["status_code"]==response.status and item["message"]==message and item["file"]==file_name:
+                                        failures[index]["line_numbers"].append(line_number)
+                                        failures[index]["count"] += 1
+                                        do_append = False
+                                if do_append:
+                                    failure = {
+                                        'status_code': response.status,
+                                        'message': message,
+                                        'file': file_name,
+                                        'line_numbers': [line_number],
+                                        'count': 1
+                                    }
+                                    failures.append(failure)
+                                self.lightbeam.increment_status_reason(message)
                             self.lightbeam.metadata["resources"][endpoint]["failures"] = failures
 
                             # update output and counters
-                            self.lightbeam.increment_status_reason(message)
                             if response.status==400:
-                                raise Exception(message)
+                                raise ValueError("; ".join(messages))
                             else:
                                 self.lightbeam.num_errors += 1
 
@@ -206,7 +226,7 @@ class Sender:
 
             except RuntimeError as e:
                 await asyncio.sleep(1)
-            except Exception as e:
+            except ValueError as e:
                 status = 400
                 self.lightbeam.num_errors += 1
                 self.logger.warn("{0}  (at line {1} of {2} )".format(str(e), line_number, file_name))
