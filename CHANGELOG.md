@@ -1,3 +1,11 @@
+### v0.1.9
+<details>
+<summary>Released 2025-09-26</summary>
+* feature: support new and improved error messages [introduced in Ed-Fi API 7.2](https://docs.ed-fi.org/reference/ods-api/7.2/whats-new/whats-new-in-this-release/#enhanced-api-error-handling) by @tomreitz in https://github.com/edanalytics/lightbeam/pull/80
+* feature: warn and skip fetching if `--query` keys are not valid parameters for an endpoint by @tomreitz in https://github.com/edanalytics/lightbeam/pull/81
+* bugfix: fix a `KeyError` if `connection.verify_ssl` is not set in `lightbeam.yml` by @tomreitz in https://github.com/edanalytics/lightbeam/pull/79
+</details>
+
 ### v0.1.8
 <details>
 <summary>Released 2025-07-11</summary>
