@@ -157,6 +157,7 @@ class Sender:
                         # warn about errors
                         if response.status not in [ 200, 201 ]:
                             response_body = json.loads(body)
+                            print(response_body)
                             # Prior to Ed-Fi API 7.2 one would get a single (often not very useful)
                             # error message for each POST. 7.2 introduced better error messages, 
                             # and the possibility for a single POST to return several errors (if
