@@ -177,6 +177,11 @@ class Sender:
                                 # (Ed-Fi API <= 7.1 style errors)
                                 messages.append(str(response.status) + ": " + util.linearize(response_body.get("message", "")))
 
+                            elif "detail" in response_body:
+                                # (Ed-Fi API >= 7.2 style errors fallback. 
+                                # All error payloads should contain this key, though it's not guaranteed to be informative
+                                messages.append(str(response.status) + ": " + util.linearize(response_body.get("detail", "")))
+
                             # update run metadata...
                             failures = self.lightbeam.metadata["resources"][endpoint].get("failures", [])
                             for message in messages:
