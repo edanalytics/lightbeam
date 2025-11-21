@@ -1,6 +1,7 @@
-### Unreleased changes
+### v0.1.10
 <details>
 * bugfix: `lightbeam send` not writing >=7.2 API error messages when error payload does not contain `errors` nor `validationErrors`
+* fix: invalid YAML for `count.separator` in docs example `lightbeam.yml`
 </details>
 
 ### v0.1.9
