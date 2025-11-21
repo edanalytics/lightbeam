@@ -1,3 +1,8 @@
+### Unreleased changes
+<details>
+* bugfix: `lightbeam send` not writing >=7.2 API error messages when error payload does not contain `errors` nor `validationErrors`
+</details>
+
 ### v0.1.9
 <details>
 <summary>Released 2025-09-26</summary>
