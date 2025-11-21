@@ -61,7 +61,7 @@ connection:
   retry_statuses: [429, 500, 502, 503, 504]
   verify_ssl: True
 count:
-  separator: ,
+  separator: ","
 fetch:
   page_size: 100
 validate:
