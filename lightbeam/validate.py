@@ -192,7 +192,12 @@ class Validator:
         return properties
 
     def get_swagger_definition_for_endpoint(self, endpoint):
-        return util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
+        namespace = util.get_namespace_for_endpoint(
+            endpoint,
+            self.lightbeam.config["namespace"],
+            self.lightbeam.config["descriptor_namespace"]
+        )
+        return util.camel_case(namespace) + "_" + util.singularize_endpoint(endpoint)
     
     # Validates a single endpoint based on the Swagger docs
     async def validate_endpoint(self, endpoint):
@@ -353,7 +358,15 @@ class Validator:
             self.uniqueness_hashes[endpoint].append(params_hash)
             # (recursively) check uniqueness of items in arrays
             swagger = self.lightbeam.api.resources_swagger
-            endpoint_def = util.get_swagger_ref_for_endpoint(self.lightbeam.config.get('namespace', ''), swagger, endpoint)
+            endpoint_def = util.get_swagger_ref_for_endpoint(
+                util.get_namespace_for_endpoint(
+                    endpoint,
+                    self.lightbeam.config["namespace"],
+                    self.lightbeam.config["descriptor_namespace"]
+                ),
+                swagger,
+                endpoint
+            )
             for k in payload.keys():
                 if isinstance(payload[k], list):
                     subarray_definition = util.resolve_swagger_ref(swagger, endpoint_def)
@@ -494,7 +507,15 @@ class Validator:
             try:
                 # send GET request
                 response = requests.get(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    util.url_join(
+                        self.lightbeam.api.config["data_url"],
+                        util.get_namespace_for_endpoint(
+                            endpoint,
+                            self.lightbeam.config["namespace"],
+                            self.lightbeam.config["descriptor_namespace"]
+                        ),
+                        endpoint
+                    ),
                     params=params,
                     verify=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers

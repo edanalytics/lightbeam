@@ -142,7 +142,15 @@ class Sender:
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 async with self.lightbeam.api.client.post(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    util.url_join(
+                        self.lightbeam.api.config["data_url"],
+                        util.get_namespace_for_endpoint(
+                            endpoint,
+                            self.lightbeam.config["namespace"],
+                            self.lightbeam.config["descriptor_namespace"]
+                        ),
+                        endpoint
+                    ),
                     data=data,
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers

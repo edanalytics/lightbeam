@@ -55,7 +55,15 @@ class Counter:
             # since `count` should finish _very_ quickly - way before expiry
             params.update({ "limit": "0", "totalCount": "true" })
             async with self.lightbeam.api.client.get(
-                util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                util.url_join(
+                    self.lightbeam.api.config["data_url"],
+                    util.get_namespace_for_endpoint(
+                        endpoint,
+                        self.lightbeam.config["namespace"],
+                        self.lightbeam.config["descriptor_namespace"]
+                    ),
+                    endpoint
+                ),
                 params=params,
                 ssl=self.lightbeam.config["connection"]["verify_ssl"],
                 headers=self.lightbeam.api.headers

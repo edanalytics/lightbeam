@@ -180,8 +180,21 @@ class EdFiAPI:
 
         ordered_endpoints = []
         for e in data:
-            if e["resource"].startswith("/" + self.lightbeam.config["namespace"] + "/"):
-                ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
+            resource_path = e["resource"]
+            endpoint = None
+            if resource_path.startswith("/" + self.lightbeam.config["descriptor_namespace"] + "/"):
+                endpoint = resource_path.replace('/' + self.lightbeam.config["descriptor_namespace"] + '/', "")
+            elif resource_path.startswith("/" + self.lightbeam.config["namespace"] + "/"):
+                endpoint = resource_path.replace('/' + self.lightbeam.config["namespace"] + '/', "")
+
+            if endpoint:
+                expected_ns = util.get_namespace_for_endpoint(
+                    endpoint,
+                    self.lightbeam.config["namespace"],
+                    self.lightbeam.config["descriptor_namespace"]
+                )
+                if resource_path.startswith("/" + expected_ns + "/"):
+                    ordered_endpoints.append(endpoint)
         return ordered_endpoints
     
     # Loads the Swagger JSON from the Ed-Fi API
@@ -278,7 +291,8 @@ class EdFiAPI:
                 os.mkdir(cache_dir)
         
             # check for cached descriptor values
-            url_hash = hashlog.get_hash_string(self.config["base_url"])
+            cache_key = self.config["base_url"] + "|" + self.lightbeam.config["descriptor_namespace"]
+            url_hash = hashlog.get_hash_string(cache_key)
             cache_file = os.path.join(cache_dir, f"descriptor-values-{url_hash}.csv")
 
         self.lightbeam.reset_counters()
@@ -346,7 +360,12 @@ class EdFiAPI:
     def get_params_for_endpoint(self, endpoint, type='required'):
         if "Descriptor" in endpoint: swagger = self.descriptors_swagger
         else: swagger = self.resources_swagger
-        definition = util.get_swagger_ref_for_endpoint(self.lightbeam.config["namespace"], swagger, endpoint)
+        namespace = util.get_namespace_for_endpoint(
+            endpoint,
+            self.lightbeam.config["namespace"],
+            self.lightbeam.config["descriptor_namespace"]
+        )
+        definition = util.get_swagger_ref_for_endpoint(namespace, swagger, endpoint)
         if type=='required':
             return self.get_required_params_from_swagger(swagger, definition)
         elif type=='all':

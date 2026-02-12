@@ -24,6 +24,7 @@ class Lightbeam:
     config_defaults = {
         "data_dir": "./",
         "namespace": "ed-fi",
+        "descriptor_namespace": None,
         "edfi_api": {
             "base_url": "",
             "oauth_url": "", 
@@ -94,6 +95,9 @@ class Lightbeam:
         # inject overrides into config
         if self.overrides: self.inject_cli_overrides()
 
+        if self.config.get("descriptor_namespace") is None:
+            self.config["descriptor_namespace"] = self.config["namespace"]
+
         if "state_dir" in self.config:
             self.track_state = True
             self.config["state_dir"] = os.path.expanduser(self.config["state_dir"])
@@ -132,6 +136,7 @@ class Lightbeam:
             "data_dir": self.config["data_dir"],
             "api_url": self.config["edfi_api"]["base_url"],
             "namespace": self.config["namespace"],
+            "descriptor_namespace": self.config["descriptor_namespace"],
             "resources": {}
         }
     

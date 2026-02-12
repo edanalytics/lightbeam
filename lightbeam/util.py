@@ -48,6 +48,15 @@ def url_join(*args):
         map(lambda x: str(x).rstrip('/'), filter(lambda x: x is not None, args))
     )
 
+def get_namespace_for_endpoint(endpoint, namespace, descriptor_namespace):
+    """
+    Returns the appropriate namespace for the given endpoint.
+    Descriptor endpoints use descriptor_namespace, all others use namespace.
+    """
+    if endpoint.endswith("Descriptors"):
+        return descriptor_namespace
+    return namespace
+
 # Returns the subset of `keys` that match the `keep` and `drop` criteria, importantly
 # respecting wildcards! (so keep=["*Association,student*"] matches anything beginning
 # with "student" or ending with "Association")
