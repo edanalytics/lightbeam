@@ -31,7 +31,7 @@ class Fetcher:
             if self.lightbeam.query != '':
                 self.lightbeam.api.load_swagger_docs()
                 swagger = self.lightbeam.api.resources_swagger
-                namespace = self.lightbeam.config["namespace"]
+                namespace = self.lightbeam.get_namespace_for_endpoint(endpoint)
                 supported_params = swagger.get("paths", {}).get(f"/{namespace}/{endpoint}", {}).get("get", {}).get("parameters", [])
                 supported_param_names = [ x["name"] for x in supported_params if "name" in x.keys() and "in" in x.keys() and x["in"]=="query" ]
                 if not set(params.keys()).issubset(set(supported_param_names)):
@@ -76,7 +76,7 @@ class Fetcher:
 
                 # send GET request
                 async with self.lightbeam.api.client.get(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint),
                     params=urlencode(params),
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers

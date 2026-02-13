@@ -179,9 +179,14 @@ class EdFiAPI:
         data = sorted(data, key=lambda x: x['order'])
 
         ordered_endpoints = []
+        possible_namespaces = [self.lightbeam.config["namespace"]]
+        if "namespace_overrides" in self.config.keys():
+            for namespace in self.config["namespace_overrides"].keys():
+                possible_namespaces.append(namespace)
         for e in data:
-            if e["resource"].startswith("/" + self.lightbeam.config["namespace"] + "/"):
-                ordered_endpoints.append(e["resource"].replace('/' + self.lightbeam.config["namespace"] + '/', ""))
+            for namespace in possible_namespaces:
+                if e["resource"].startswith(f"/{namespace}/"):
+                    ordered_endpoints.append(e["resource"].replace(f"/{namespace}/", ""))
         return ordered_endpoints
     
     # Loads the Swagger JSON from the Ed-Fi API
@@ -346,7 +351,7 @@ class EdFiAPI:
     def get_params_for_endpoint(self, endpoint, type='required'):
         if "Descriptor" in endpoint: swagger = self.descriptors_swagger
         else: swagger = self.resources_swagger
-        definition = util.get_swagger_ref_for_endpoint(self.lightbeam.config["namespace"], swagger, endpoint)
+        definition = util.get_swagger_ref_for_endpoint(self.lightbeam.get_namespace_for_endpoint(endpoint), swagger, endpoint)
         if type=='required':
             return self.get_required_params_from_swagger(swagger, definition)
         elif type=='all':

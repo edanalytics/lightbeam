@@ -141,7 +141,7 @@ class Deleter:
 
                     # we have to get the `id` for a particular resource by first searching for its natural keys
                     async with self.lightbeam.api.client.get(
-                        util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                        util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint),
                         params=params,
                         ssl=self.lightbeam.config["connection"]["verify_ssl"],
                         headers=self.lightbeam.api.headers
@@ -192,7 +192,7 @@ class Deleter:
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 async with self.lightbeam.api.client.delete(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint, id),
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint, id),
                     ssl=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers
                     ) as delete_response:

@@ -192,7 +192,7 @@ class Validator:
         return properties
 
     def get_swagger_definition_for_endpoint(self, endpoint):
-        return util.camel_case(self.lightbeam.config["namespace"]) + "_" + util.singularize_endpoint(endpoint)
+        return util.camel_case(self.lightbeam.get_namespace_for_endpoint(endpoint)) + "_" + util.singularize_endpoint(endpoint)
     
     # Validates a single endpoint based on the Swagger docs
     async def validate_endpoint(self, endpoint):
@@ -494,7 +494,7 @@ class Validator:
             try:
                 # send GET request
                 response = requests.get(
-                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.config["namespace"], endpoint),
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint),
                     params=params,
                     verify=self.lightbeam.config["connection"]["verify_ssl"],
                     headers=self.lightbeam.api.headers

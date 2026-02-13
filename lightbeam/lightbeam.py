@@ -125,6 +125,8 @@ class Lightbeam:
             os.mkdir(self.config["state_dir"])
 
         # Initialize a dictionary for tracking run metadata (for structured output)
+        namespace_overrides = self.config["namespace_overrides"] if "namespace_overrides" in self.config.keys() else None
+        namespace_overrides.pop("__line__")
         self.metadata = {
             "started_at": self.start_timestamp.isoformat(timespec='microseconds'),
             "working_dir": os.getcwd(),
@@ -132,6 +134,7 @@ class Lightbeam:
             "data_dir": self.config["data_dir"],
             "api_url": self.config["edfi_api"]["base_url"],
             "namespace": self.config["namespace"],
+            "namespace_overrides": namespace_overrides,
             "resources": {}
         }
     
@@ -249,6 +252,16 @@ class Lightbeam:
 
     def confirm_truncate(self, endpoints):
         self._confirm_delete_op(endpoints, "TRUNCATE ALL DATA")
+
+    def get_namespace_for_endpoint(self, endpoint):
+        if "namespace_overrides" in self.config.keys():
+            for namespace in self.config["namespace_overrides"].keys():
+                if (
+                    isinstance(self.config["namespace_overrides"][namespace], list)
+                    and endpoint in self.config["namespace_overrides"][namespace]
+                ):
+                    return namespace
+        return self.config["namespace"]
 
     ################### Data discovery and loading methods ####################
     

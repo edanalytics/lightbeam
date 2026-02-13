@@ -5,6 +5,11 @@
     "data_dir": "",
     "api_url": "",
     "namespace": "ed-fi",
+    "namespace_overrides": {
+        "tpdm": [
+            "candidates"
+        ]
+    },
     "resources": {
         "educationServiceCenters": {
             "successes": [
