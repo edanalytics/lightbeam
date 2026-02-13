@@ -1,6 +1,9 @@
 # state_dir: ~/.lightbeam/
 data_dir: ./
 namespace: ed-fi
+# Optional: Use a different namespace for descriptor endpoints
+# If not specified, defaults to the value of 'namespace'
+# descriptor_namespace: tpdm
 edfi_api:
   # base_url: https://api.ed-fi.org/v5.3/api
   base_url: https://localhost/api
