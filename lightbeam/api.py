@@ -180,8 +180,9 @@ class EdFiAPI:
 
         ordered_endpoints = []
         possible_namespaces = [self.lightbeam.config["namespace"]]
-        if "namespace_overrides" in self.config.keys():
-            for namespace in self.config["namespace_overrides"].keys():
+        if "namespace_overrides" in self.lightbeam.config.keys():
+            for namespace in self.lightbeam.config["namespace_overrides"].keys():
+                if namespace == "__line__": continue # (remove YAML parsing artifact)
                 possible_namespaces.append(namespace)
         for e in data:
             for namespace in possible_namespaces:

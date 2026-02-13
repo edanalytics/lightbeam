@@ -126,7 +126,7 @@ class Lightbeam:
 
         # Initialize a dictionary for tracking run metadata (for structured output)
         namespace_overrides = self.config["namespace_overrides"] if "namespace_overrides" in self.config.keys() else None
-        namespace_overrides.pop("__line__")
+        namespace_overrides.pop("__line__") # (remove YAML parsing artifact)
         self.metadata = {
             "started_at": self.start_timestamp.isoformat(timespec='microseconds'),
             "working_dir": os.getcwd(),
