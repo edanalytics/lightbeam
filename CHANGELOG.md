@@ -1,3 +1,9 @@
+### v0.1.11
+<details>
+<summary>Released 2026-02-17</summary>
+* feature: `namespace_overrides` to allow sending resources to different namespaces in one `lightbeam send`
+</details>
+
 ### v0.1.10
 <details>
 <summary>Released 2025-11-21</summary>
