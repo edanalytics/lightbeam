@@ -1,5 +1,8 @@
 data_dir: ${BASE_DIR}/data/
 namespace: ed-fi
+namespace_overrides:
+  tpdm:
+    - candidates
 edfi_api:
   base_url: ${BASE_URL}
   version: 3 # or 2, although this isn't really supported

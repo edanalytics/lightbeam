@@ -41,6 +41,9 @@ An example YAML configuration is below, followed by documentation of each option
 state_dir: ~/.lightbeam/
 data_dir: ./
 namespace: ed-fi
+namespace_overrides:
+  tpdm:
+    - candidates
 edfi_api:
   base_url: https://api.schooldistrict.org/v5.3/api
   oauth_url: https://api.schooldistrict.org/v5.3/api/oauth/token 
@@ -84,6 +87,7 @@ show_stacktrace: True
 * (optional) `state_dir` is where [state](#state) is stored. The default is `~/.lightbeam/` on *nix systems, `C:/Users/USER/.lightbeam/` on Windows systems.
 * (optional) Specify the `data_dir` which contains JSONL files to send to Ed-Fi. The default is `./`. The tool will look for files like `{Resource}.jsonl` or `{Descriptor}.jsonl` in this location, as well as directory-based files like `{Resource}/*.jsonl` or `{Descriptor}/*.jsonl`. Files with `.ndjson` or simply `.json` extensions will also be processed. (More info at the [`ndjson` standard page](http://dataprotocols.org/ndjson/).)
 * (optional) Specify the `namespace` to use when accessing the Ed-Fi API. The default is `ed-fi` but others include `tpdm` or custom values. To send data to multiple namespaces, you must use a YAML configuration file and `lightbeam send` for each.
+* (optional) Specify `namespace_overrides`: a structure where keys are alternate namespaces (beside the above `namespace`) and values are lists of endpoint names that correspond to that namespace. This enables lightbeam to map data files for different endpoints to different namespaces, so you can (for example) transmit `candidates.jsonl` to the `tpdm` namespace and `staffs.jsonl` to the `ed-fi` namespace in a single `lightbeam send`.
 * Specify the details of the `edfi_api` to which to connect including
   * (optional) The `base_url` which serves a JSON object specifying the paths to data endpoints, Swagger, and dependencies. The default is `https://localhost/api` (the address of an Ed-Fi API [running locally in Docker](https://docs.ed-fi.org/reference/docker/)), but the location varies depending on how Ed-Fi is deployed.
   * Most Ed-Fi APIs publish other endpoints they provide in a JSON document at the base URL - `lighbteam` attempts to discover these. If, however, your API does not publish these URLs at the base, or you want to manually override any of them for any reason, you can specify the following:
