@@ -74,7 +74,6 @@ class Counter:
                         self.logger.warn(f"Unable to load counts for {endpoint}... {status} API response: {body}")
                         self.lightbeam.results.append([endpoint, f"error ({status}): {body}"])
                         self.lightbeam.num_errors += 1
-                        self.lightbeam.num_finished += 1
                         break
                     else:
                         total_count = int(response.headers.get("Total-Count", "-1"))
@@ -84,10 +83,11 @@ class Counter:
                             self.lightbeam.num_errors += 1
                         else:
                             self.lightbeam.results.append([endpoint, total_count])
-                        self.lightbeam.num_finished += 1
                         break
 
             except RuntimeError as e:
                 await asyncio.sleep(1)
             except Exception as e:
                 self.logger.critical(f"Unable to load counts for {endpoint} from API... terminating. Check API connectivity.")
+
+        self.lightbeam.num_finished += 1
