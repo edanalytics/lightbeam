@@ -62,7 +62,21 @@ class Counter:
                     ) as response:
                     body = await response.text()
                     status = str(response.status)
-                    if status == '401':
+                    if status != '401':
+                        if status not in ['200', '201']:
+                            self.logger.warn(f"Unable to load counts for {endpoint}... {status} API response: {body}")
+                            self.lightbeam.results.append([endpoint, f"error ({status}): {body}"])
+                            self.lightbeam.num_errors += 1
+                        else:
+                            total_count = int(response.headers.get("Total-Count", "-1"))
+                            if total_count < 0:
+                                self.logger.warn(f"Unable to load counts for {endpoint}... no Total-Count header in response: {body}")
+                                self.lightbeam.results.append([endpoint, f"error: no Total-Count header"])
+                                self.lightbeam.num_errors += 1
+                            else:
+                                self.lightbeam.results.append([endpoint, total_count])
+                        break
+                    else:
                         if self.lightbeam.token_version == curr_token_version:
                             self.lightbeam.lock.acquire()
                             self.lightbeam.api.update_oauth()
@@ -70,20 +84,6 @@ class Counter:
                         else:
                             await asyncio.sleep(1)
                         curr_token_version = int(str(self.lightbeam.token_version))
-                    elif status not in ['200', '201']:
-                        self.logger.warn(f"Unable to load counts for {endpoint}... {status} API response: {body}")
-                        self.lightbeam.results.append([endpoint, f"error ({status}): {body}"])
-                        self.lightbeam.num_errors += 1
-                        break
-                    else:
-                        total_count = int(response.headers.get("Total-Count", "-1"))
-                        if total_count < 0:
-                            self.logger.warn(f"Unable to load counts for {endpoint}... no Total-Count header in response: {body}")
-                            self.lightbeam.results.append([endpoint, f"error: no Total-Count header"])
-                            self.lightbeam.num_errors += 1
-                        else:
-                            self.lightbeam.results.append([endpoint, total_count])
-                        break
 
             except RuntimeError as e:
                 await asyncio.sleep(1)
