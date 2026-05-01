@@ -31,8 +31,8 @@ class Counter:
             # print header
             print("Records" + self.lightbeam.config["count"]["separator"] + "Endpoint")
             for result in self.lightbeam.results:
-                # when printing to the console, only include endpoints with >0 records
-                if result[1] > 0:
+                # when printing to the console, only include endpoints with >0 records or errors
+                if not isinstance(result[1], int) or result[1] > 0:
                     # print row
                     print(str(result[1]) + self.lightbeam.config["count"]["separator"] + result[0])
     
@@ -50,28 +50,44 @@ class Counter:
         await self.lightbeam.do_tasks(tasks, counter, log_status_counts=False)
     
     async def get_record_count(self, endpoint, params={}):
-        try:
-            # don't bother with handling 401 token expiry (like `send` and `delete` do)
-            # since `count` should finish _very_ quickly - way before expiry
-            params.update({ "limit": "0", "totalCount": "true" })
-            async with self.lightbeam.api.client.get(
-                util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint),
-                params=params,
-                ssl=self.lightbeam.config["connection"]["verify_ssl"],
-                headers=self.lightbeam.api.headers
-                ) as response:
-                body = await response.text()
-                status = str(response.status)
-                if status not in ['200', '201']:
-                    self.logger.warn(f"Unable to load counts for {endpoint}... {status} API response.")
-                else:
-                    total_count = int(response.headers.get("Total-Count", "-1"))
-                    if total_count < 0:
-                        self.logger.warn(f"Unable to load counts for {endpoint}...")
+        curr_token_version = int(str(self.lightbeam.token_version))
+        while True:
+            try:
+                params.update({ "limit": "0", "totalCount": "true" })
+                async with self.lightbeam.api.client.get(
+                    util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint),
+                    params=params,
+                    ssl=self.lightbeam.config["connection"]["verify_ssl"],
+                    headers=self.lightbeam.api.headers
+                    ) as response:
+                    body = await response.text()
+                    status = str(response.status)
+                    if status == '401':
+                        if self.lightbeam.token_version == curr_token_version:
+                            self.lightbeam.lock.acquire()
+                            self.lightbeam.api.update_oauth()
+                            self.lightbeam.lock.release()
+                        else:
+                            await asyncio.sleep(1)
+                        curr_token_version = int(str(self.lightbeam.token_version))
+                    elif status not in ['200', '201']:
+                        self.logger.warn(f"Unable to load counts for {endpoint}... {status} API response: {body}")
+                        self.lightbeam.results.append([endpoint, f"error ({status}): {body}"])
                         self.lightbeam.num_errors += 1
+                        self.lightbeam.num_finished += 1
+                        break
                     else:
-                        self.lightbeam.results.append([endpoint, total_count])
-                self.lightbeam.num_finished += 1
+                        total_count = int(response.headers.get("Total-Count", "-1"))
+                        if total_count < 0:
+                            self.logger.warn(f"Unable to load counts for {endpoint}... no Total-Count header in response: {body}")
+                            self.lightbeam.results.append([endpoint, f"error: no Total-Count header"])
+                            self.lightbeam.num_errors += 1
+                        else:
+                            self.lightbeam.results.append([endpoint, total_count])
+                        self.lightbeam.num_finished += 1
+                        break
 
-        except Exception as e:
-            self.logger.critical(f"Unable to load counts for {endpoint} from API... terminating. Check API connectivity.")
+            except RuntimeError as e:
+                await asyncio.sleep(1)
+            except Exception as e:
+                self.logger.critical(f"Unable to load counts for {endpoint} from API... terminating. Check API connectivity.")
