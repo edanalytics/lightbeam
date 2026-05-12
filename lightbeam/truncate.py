@@ -55,6 +55,7 @@ class Truncator:
         await self.lightbeam.fetcher.get_records(do_write=False, log_status_counts=False)
 
         self.logger.info("TRUNCATING ALL DATA from endpoint {0} ...".format(endpoint))
+        self.logger.info("truncating " + util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint))
         tasks = []
         counter = 0
         self.lightbeam.reset_counters()

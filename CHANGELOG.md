@@ -1,3 +1,11 @@
+### v0.1.12
+<details>
+<summary>Released 2026-05-12</summary>
+* feature: better error logging and re-auth handling in `lightbeam count` by @johncmerfeld in https://github.com/edanalytics/lightbeam/pull/89
+* feature: log full endpoint URL for URL construction debugging by @tomreitz in https://github.com/edanalytics/lightbeam/pull/91
+* fix: error if optional `namespace_overrides` config is not set by @jayckaiser in https://github.com/edanalytics/lightbeam/pull/90
+</details>
+
 ### v0.1.11
 <details>
 <summary>Released 2026-02-17</summary>

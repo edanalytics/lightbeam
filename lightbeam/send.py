@@ -61,6 +61,7 @@ class Sender:
 
         self.lightbeam.metadata["resources"].update({endpoint: {}})
         self.lightbeam.reset_counters()
+        self.logger.info("sending to " + util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint))
 
         # process each file
         data_files = self.lightbeam.get_data_files_for_endpoint(endpoint)
