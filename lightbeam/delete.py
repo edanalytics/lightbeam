@@ -72,6 +72,7 @@ class Deleter:
             self.lightbeam.reset_counters()
 
         self.logger.info("deleting data from endpoint {0} ...".format(endpoint))
+        self.logger.info("deleting from " + util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint))
         # process each file
         counter = 0
         for file_name in data_files:

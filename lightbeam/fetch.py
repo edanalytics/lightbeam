@@ -68,6 +68,7 @@ class Fetcher:
     # Fetches records for a specific endpoint
     async def get_endpoint_records(self, endpoint, limit, offset, file_handle=None):
         curr_token_version = int(str(self.lightbeam.token_version))
+        self.logger.info("fetching from " + util.url_join(self.lightbeam.api.config["data_url"], self.lightbeam.get_namespace_for_endpoint(endpoint), endpoint))
         while True: # this is not great practice, but an effective way (along with the `break` below) to achieve a do:while loop
             try:
                 # construct the URL query params:
