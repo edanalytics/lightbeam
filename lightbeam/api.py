@@ -91,7 +91,7 @@ class EdFiAPI:
             retry_options=ExponentialRetry(
                 attempts=self.lightbeam.config['connection']["num_retries"],
                 factor=self.lightbeam.config['connection']["backoff_factor"],
-                statuses=self.lightbeam.config['connection']["retry_statuses"].append(401)
+                statuses=[*self.lightbeam.config['connection']["retry_statuses"], 401]
                 ),
             connector=aiohttp.connector.TCPConnector(limit=self.lightbeam.config['connection']["pool_size"])
             )
