@@ -34,6 +34,28 @@ class Fetcher:
                 namespace = self.lightbeam.get_namespace_for_endpoint(endpoint)
                 supported_params = swagger.get("paths", {}).get(f"/{namespace}/{endpoint}", {}).get("get", {}).get("parameters", [])
                 supported_param_names = [ x["name"] for x in supported_params if "name" in x.keys() and "in" in x.keys() and x["in"]=="query" ]
+
+                supported_param_refs = [ x["$ref"] for x in supported_params if "$ref" in x.keys()]
+                supported_component_params = []
+
+                for p in supported_param_refs:
+
+                    node = {}
+
+                    for part in p.split("/"):
+                        if (part == "#"):
+                            continue
+                        if not(node):
+                            node = swagger.get(part, {})
+                        else:
+                            node = node.get(part, {})
+
+                    if node:
+                        supported_component_params.append(node)
+
+                supported_param_names_by_ref = [ x["name"] for x in supported_component_params if "name" in x.keys() and "in" in x.keys() and x["in"]=="query" ]
+                supported_param_names = supported_param_names + supported_param_names_by_ref
+
                 if not set(params.keys()).issubset(set(supported_param_names)):
                     self.logger.warn(f"Query contains keys that are not params for the endpoint {endpoint}... skipping! (Supported params: {(', '.join(supported_param_names))})")
                     continue
